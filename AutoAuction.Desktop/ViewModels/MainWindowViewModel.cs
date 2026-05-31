@@ -1,8 +1,10 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using AutoAuction.Core.Services;
+using AutoAuction.Desktop.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -48,14 +50,31 @@ public partial class MainWindowViewModel : ViewModelBase
 
     partial void OnSelectedDraftChanged(DraftListItemViewModel? value)
     {
+        // Detach the previous editor so its discard event doesn't keep this VM alive.
+        if (CurrentDraft is not null)
+            CurrentDraft.Discarded -= OnDraftDiscarded;
+
         if (value is null)
         {
             CurrentDraft = null;
             return;
         }
 
-        CurrentDraft = new DraftEditorViewModel(_draftService, value.Draft);
+        var editor = new DraftEditorViewModel(_draftService, value.Draft);
+        editor.Discarded += OnDraftDiscarded;
+        CurrentDraft = editor;
         StatusMessage = $"Editing: {value.DisplayTitle}";
+    }
+
+    private void OnDraftDiscarded(int movedCount)
+    {
+        // Clearing the selection closes the editor (and detaches the event above).
+        SelectedDraft = null;
+        RefreshInbox();
+        RefreshDrafts();
+        StatusMessage = movedCount > 0
+            ? $"Draft discarded; {movedCount} photo(s) returned to inbox"
+            : "Draft discarded";
     }
 
     /// <summary>
@@ -69,6 +88,14 @@ public partial class MainWindowViewModel : ViewModelBase
         StatusMessage = count > 0
             ? $"Imported {count} photo(s) into the inbox"
             : "No image files were imported";
+    }
+
+    /// <summary>Opens the inbox folder in the OS file manager (creating it if needed).</summary>
+    [RelayCommand]
+    private void OpenInboxFolder()
+    {
+        Directory.CreateDirectory(_config.InboxPath);
+        SystemFolder.Open(_config.InboxPath);
     }
 
     [RelayCommand]

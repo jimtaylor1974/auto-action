@@ -23,7 +23,11 @@
     </UserControl.Styles>
 
     <ScrollViewer Padding="24,16">
-        <StackPanel MaxWidth="640" HorizontalAlignment="Left" Spacing="2">
+        <!-- Bottom margin keeps the last control (Add shipping option) clear of the
+             window edge; without it the scroll extent stops short and the button is
+             stranded behind the status bar. -->
+        <StackPanel MaxWidth="640" HorizontalAlignment="Left" Spacing="2"
+                    Margin="0,0,0,48">
 
             <!-- Attached images -->
             <ScrollViewer HorizontalScrollBarVisibility="Auto"
@@ -49,9 +53,44 @@
                        Opacity="0.5" FontSize="12"
                        IsVisible="{Binding !Images.Count}"/>
 
-            <!-- Save status -->
-            <TextBlock Text="{Binding SaveStatus}" FontSize="11" Opacity="0.6"
-                       Margin="0,8,0,0"/>
+            <!-- Save status + draft actions -->
+            <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,8,0,0">
+                <TextBlock Grid.Column="0" Text="{Binding SaveStatus}" FontSize="11"
+                           Opacity="0.6" VerticalAlignment="Center"/>
+
+                <Button Grid.Column="1" Margin="0,0,8,0"
+                        ToolTip.Tip="Move this draft's photos back to the inbox and delete the draft"
+                        Padding="6,4">
+                    <Button.Flyout>
+                        <Flyout>
+                            <StackPanel Spacing="10" MaxWidth="260">
+                                <TextBlock TextWrapping="Wrap"
+                                           Text="Discard this draft? Its photos will be moved back to the inbox and the draft details will be permanently deleted."/>
+                                <Button Command="{Binding DiscardCommand}"
+                                        HorizontalAlignment="Right" Classes="accent">
+                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                        <mi:MaterialIcon Kind="DeleteOutline" Width="16" Height="16"/>
+                                        <TextBlock Text="Discard draft"/>
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </Flyout>
+                    </Button.Flyout>
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <mi:MaterialIcon Kind="DeleteOutline" Width="16" Height="16"/>
+                        <TextBlock Text="Discard" FontSize="12"/>
+                    </StackPanel>
+                </Button>
+
+                <Button Grid.Column="2" Command="{Binding OpenFolderCommand}"
+                        ToolTip.Tip="Open this draft's folder in your file manager"
+                        Padding="6,4">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <mi:MaterialIcon Kind="FolderOpen" Width="16" Height="16"/>
+                        <TextBlock Text="Open folder" FontSize="12"/>
+                    </StackPanel>
+                </Button>
+            </Grid>
 
             <!-- ===== Core Details ===== -->
             <TextBlock Text="Core Details" Classes="section"/>
@@ -123,10 +162,15 @@
             <CheckBox Content="Free shipping" Margin="0,8,0,0"
                       IsChecked="{Binding Listing.IsFreeShipping}"/>
 
-            <!-- Custom shipping options (only when not free shipping) -->
-            <StackPanel IsVisible="{Binding !Listing.IsFreeShipping}" Spacing="6"
+            <!-- Custom shipping options. Disabled (greyed) while Free shipping is on,
+                 rather than hidden, so the seller can still see them and the Free
+                 shipping checkbox above always stays reachable to toggle back. -->
+            <StackPanel IsEnabled="{Binding !Listing.IsFreeShipping}" Spacing="6"
                         Margin="0,4,0,0">
                 <TextBlock Text="Custom shipping options" Classes="label"/>
+                <TextBlock Text="No options yet — click &quot;Add shipping option&quot; below to add a courier and price."
+                           FontSize="11" Opacity="0.6" TextWrapping="Wrap"
+                           IsVisible="{Binding !Listing.ShippingOptions.Count}"/>
                 <ItemsControl ItemsSource="{Binding Listing.ShippingOptions}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="models:ShippingOption">

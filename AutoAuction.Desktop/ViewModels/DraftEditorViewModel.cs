@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using AutoAuction.Core.Models;
 using AutoAuction.Core.Services;
+using AutoAuction.Desktop.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -91,6 +92,30 @@ public partial class DraftEditorViewModel : ViewModelBase
                 option.PropertyChanged += OnShippingOptionChanged;
 
         ScheduleSave();
+    }
+
+    /// <summary>
+    /// Raised after the user discards this draft. The argument is the number of photos
+    /// moved back into the inbox. The owner uses this to refresh its lists and close the editor.
+    /// </summary>
+    public event Action<int>? Discarded;
+
+    /// <summary>Opens this draft's folder in the OS file manager.</summary>
+    [RelayCommand]
+    private void OpenFolder() => SystemFolder.Open(_folderPath);
+
+    /// <summary>
+    /// Discards this draft: cancels any pending auto-save, moves its photos back to the
+    /// inbox, deletes the folder, and notifies the owner via <see cref="Discarded"/>.
+    /// </summary>
+    [RelayCommand]
+    private void Discard()
+    {
+        // Cancel a debounced save so it can't recreate listing.json after we delete the folder.
+        _saveCts?.Cancel();
+
+        var moved = _draftService.DiscardDraft(_folderPath);
+        Discarded?.Invoke(moved);
     }
 
     [RelayCommand]

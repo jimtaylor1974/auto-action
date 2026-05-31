@@ -34,6 +34,12 @@ public interface IDraftService
     /// </summary>
     DraftFolder CreateDraft(IEnumerable<string> inboxImagePaths);
 
+    /// <summary>
+    /// Discards a draft: moves its images back into the Inbox and deletes the draft folder
+    /// (including its <c>listing.json</c>). Returns the number of images moved back.
+    /// </summary>
+    int DiscardDraft(string draftFolderPath);
+
     /// <summary>Loads the listing for a specific draft folder (creating a default if missing).</summary>
     ListingModel LoadListing(string draftFolderPath);
 
@@ -167,6 +173,29 @@ public sealed class DraftService : IDraftService
 
         SaveListing(folder, listing);
         return new DraftFolder(folder, listing);
+    }
+
+    public int DiscardDraft(string draftFolderPath)
+    {
+        if (!Directory.Exists(draftFolderPath))
+            return 0;
+
+        Directory.CreateDirectory(_config.InboxPath);
+
+        var moved = 0;
+        foreach (var file in Directory.EnumerateFiles(draftFolderPath))
+        {
+            if (!IsImage(file))
+                continue;
+
+            var destPath = GetUniqueDestination(_config.InboxPath, Path.GetFileName(file));
+            File.Move(file, destPath);
+            moved++;
+        }
+
+        // Remove the folder and everything left in it (listing.json, any stray files).
+        Directory.Delete(draftFolderPath, recursive: true);
+        return moved;
     }
 
     public ListingModel LoadListing(string draftFolderPath)

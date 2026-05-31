@@ -16,25 +16,36 @@
 
             <!-- ===== Left: Inbox gallery + Drafts list ===== -->
             <Border Grid.Column="0"
+                    x:Name="LeftPanel"
+                    DragDrop.AllowDrop="True"
                     Background="{DynamicResource SystemControlBackgroundAltMediumHighBrush}"
                     BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
                     BorderThickness="0,0,1,0">
                 <Grid RowDefinitions="Auto,*,Auto,Auto,Auto,2*">
 
                     <!-- Inbox header -->
-                    <StackPanel Grid.Row="0" Margin="12,12,12,4" Spacing="2">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <mi:MaterialIcon Kind="Inbox" Width="20" Height="20"/>
-                            <TextBlock Text="Inbox" FontSize="16" FontWeight="SemiBold"
-                                       VerticalAlignment="Center"/>
-                            <Button Command="{Binding RefreshInboxCommand}"
+                    <StackPanel Grid.Row="0" Margin="12,12,12,4" Spacing="6">
+                        <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                            <mi:MaterialIcon Grid.Column="0" Kind="Inbox" Width="20" Height="20"
+                                             VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text="Inbox" FontSize="16" FontWeight="SemiBold"
+                                       Margin="8,0,0,0" VerticalAlignment="Center"/>
+                            <Button Grid.Column="2" Click="OnAddPhotosClick"
+                                    ToolTip.Tip="Add photos from your computer"
+                                    Padding="6,4" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <mi:MaterialIcon Kind="ImagePlus" Width="16" Height="16"/>
+                                    <TextBlock Text="Add" FontSize="12"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Grid.Column="3" Command="{Binding RefreshInboxCommand}"
                                     ToolTip.Tip="Rescan the inbox folder"
-                                    Padding="4" Background="Transparent"
+                                    Padding="4" Background="Transparent" Margin="4,0,0,0"
                                     VerticalAlignment="Center">
                                 <mi:MaterialIcon Kind="Refresh" Width="16" Height="16"/>
                             </Button>
-                        </StackPanel>
-                        <TextBlock Text="Drop photos into the inbox folder, then tick the ones to turn into a draft."
+                        </Grid>
+                        <TextBlock Text="Drag photos here or click Add, then tick the ones to turn into a draft."
                                    FontSize="11" TextWrapping="Wrap" Opacity="0.7"/>
                     </StackPanel>
 

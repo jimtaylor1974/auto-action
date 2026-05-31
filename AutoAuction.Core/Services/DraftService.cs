@@ -1,5 +1,6 @@
 using System.Text.Json;
 using AutoAuction.Core.Models;
+using ImageMagick;
 
 namespace AutoAuction.Core.Services;
 
@@ -17,6 +18,12 @@ public interface IDraftService
 
     /// <summary>Returns the full paths of all image files currently in the Inbox.</summary>
     IReadOnlyList<string> GetInboxImages();
+
+    /// <summary>
+    /// Copies external image files into the Inbox (used by drag-and-drop and the file picker).
+    /// Non-image files are ignored. Returns the number of files actually imported.
+    /// </summary>
+    int ImportToInbox(IEnumerable<string> sourcePaths);
 
     /// <summary>Loads every draft folder and its listing, newest first.</summary>
     IReadOnlyList<DraftFolder> GetDrafts();
@@ -42,6 +49,12 @@ public sealed class DraftService : IDraftService
         ".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif"
     };
 
+    // Formats that aren't natively displayable by Avalonia, so they are converted to JPG on import.
+    private static readonly HashSet<string> ConvertibleExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".heic", ".heif"
+    };
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true
@@ -63,6 +76,60 @@ public sealed class DraftService : IDraftService
             .Where(IsImage)
             .OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase)
             .ToList();
+    }
+
+    public int ImportToInbox(IEnumerable<string> sourcePaths)
+    {
+        Directory.CreateDirectory(_config.InboxPath);
+
+        var imported = 0;
+        foreach (var sourcePath in sourcePaths)
+        {
+            if (!File.Exists(sourcePath))
+                continue;
+
+            if (IsConvertible(sourcePath))
+            {
+                if (TryConvertToInbox(sourcePath))
+                    imported++;
+            }
+            else if (IsImage(sourcePath))
+            {
+                var destPath = GetUniqueDestination(_config.InboxPath, Path.GetFileName(sourcePath));
+                File.Copy(sourcePath, destPath);
+                imported++;
+            }
+        }
+
+        return imported;
+    }
+
+    /// <summary>
+    /// Converts a HEIC/HEIF file to JPG and writes it into the Inbox.
+    /// Returns false (rather than throwing) if the file cannot be decoded.
+    /// </summary>
+    private bool TryConvertToInbox(string sourcePath)
+    {
+        try
+        {
+            var jpgName = Path.GetFileNameWithoutExtension(sourcePath) + ".jpg";
+            var destPath = GetUniqueDestination(_config.InboxPath, jpgName);
+
+            using var image = new MagickImage(sourcePath);
+
+            // Phone photos store rotation in EXIF rather than the pixels. Bake the rotation
+            // into the pixels (and clear the now-redundant EXIF orientation) so the JPG
+            // displays upright everywhere.
+            image.AutoOrient();
+
+            image.Format = MagickFormat.Jpeg;
+            image.Write(destPath);
+            return true;
+        }
+        catch (MagickException)
+        {
+            return false;
+        }
     }
 
     public IReadOnlyList<DraftFolder> GetDrafts()
@@ -144,6 +211,9 @@ public sealed class DraftService : IDraftService
 
     private static bool IsImage(string path) =>
         ImageExtensions.Contains(Path.GetExtension(path));
+
+    private static bool IsConvertible(string path) =>
+        ConvertibleExtensions.Contains(Path.GetExtension(path));
 
     private static string GetUniqueDestination(string folder, string fileName)
     {

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
@@ -55,6 +56,19 @@ public partial class MainWindowViewModel : ViewModelBase
 
         CurrentDraft = new DraftEditorViewModel(_draftService, value.Draft);
         StatusMessage = $"Editing: {value.DisplayTitle}";
+    }
+
+    /// <summary>
+    /// Imports external image files (from drag-and-drop or the file picker) into the inbox
+    /// and refreshes the gallery.
+    /// </summary>
+    public void ImportPhotos(IEnumerable<string> paths)
+    {
+        var count = _draftService.ImportToInbox(paths);
+        RefreshInbox();
+        StatusMessage = count > 0
+            ? $"Imported {count} photo(s) into the inbox"
+            : "No image files were imported";
     }
 
     [RelayCommand]

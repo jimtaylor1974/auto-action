@@ -1,0 +1,40 @@
+{
+  "name": "AutoAuction Bridge",
+  "version": "0.1.0",
+  "description": "Fills TradeMe sell forms from the active draft in the AutoAuction desktop app.",
+  "manifest_version": 3,
+  "author": "AutoAuction",
+  "icons": {
+    "16": "icons/auto-auction-icon.svg",
+    "32": "icons/auto-auction-icon.svg",
+    "48": "icons/auto-auction-icon.svg",
+    "128": "icons/auto-auction-icon.svg"
+  },
+  "action": {
+    "default_title": "AutoAuction Bridge",
+    "default_icon": {
+      "16": "icons/auto-auction-icon.svg",
+      "32": "icons/auto-auction-icon.svg",
+      "48": "icons/auto-auction-icon.svg",
+      "128": "icons/auto-auction-icon.svg"
+    }
+  },
+  "permissions": [
+    "sidePanel",
+    "scripting",
+    "storage",
+    "activeTab",
+    "tabs"
+  ],
+  "host_permissions": [
+    "http://localhost/*",
+    "http://127.0.0.1/*",
+    "https://www.trademe.co.nz/*"
+  ],
+  "background": {
+    "service_worker": "serviceWorker.js"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  }
+}

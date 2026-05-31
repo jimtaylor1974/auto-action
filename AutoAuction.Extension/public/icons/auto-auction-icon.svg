@@ -1,0 +1,10 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="128" height="128" rx="26" fill="#0E7C86"/>
+  <g transform="rotate(45 64 64)" stroke="#FFFFFF" stroke-width="9" stroke-linecap="round" stroke-linejoin="round">
+    <!-- gavel head -->
+    <rect x="40" y="28" width="48" height="26" rx="5" fill="#FFFFFF" stroke="none"/>
+    <line x1="64" y1="54" x2="64" y2="98"/>
+  </g>
+  <!-- sound block -->
+  <rect x="30" y="96" width="68" height="12" rx="6" fill="#FFFFFF"/>
+</svg>

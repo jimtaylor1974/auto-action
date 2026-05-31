@@ -35,6 +35,12 @@ public class ListingModel : ReactiveObject
     /// <summary>When the listing was marked as Sold. Null until sold.</summary>
     public DateTime? SoldUtc { get; set; }
 
+    /// <summary>TradeMe listing id, captured by the extension after publishing. Null until listed.</summary>
+    public string? TradeMeListingId { get; set; }
+
+    /// <summary>Full TradeMe listing URL, captured by the extension after publishing. Null until listed.</summary>
+    public string? TradeMeListingUrl { get; set; }
+
     // ----- 1. Core Details -----
 
     private string _title = string.Empty;
@@ -81,6 +87,17 @@ public class ListingModel : ReactiveObject
     {
         get => _description;
         set => this.RaiseAndSetIfChanged(ref _description, value);
+    }
+
+    private string _aiImageDescription = string.Empty;
+    /// <summary>
+    /// In-depth, factual description of the item's photos produced by the AI. Local only -
+    /// NOT sent to TradeMe; kept for context and to inform re-generation.
+    /// </summary>
+    public string AiImageDescription
+    {
+        get => _aiImageDescription;
+        set => this.RaiseAndSetIfChanged(ref _aiImageDescription, value);
     }
 
     // ----- 2. Pricing Configuration -----

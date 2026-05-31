@@ -6,6 +6,23 @@ export const DEFAULT_BRIDGE_URL = 'http://localhost:5999';
 
 const BRIDGE_URL_STORAGE_KEY = 'AutoAuctionExtension.bridgeUrl';
 
+/** The active draft + its images, fetched in the extension context (the page can't reach localhost). */
+export interface ActivePayload {
+    listing: ActiveListing;
+    images: ActiveImage[];
+}
+
+export async function fetchActivePayload(bridgeUrl: string): Promise<ActivePayload> {
+    const listingResp = await fetch(`${bridgeUrl}/api/drafts/active`, {cache: 'no-store'});
+    if (!listingResp.ok) throw new Error(`No active draft (HTTP ${listingResp.status}).`);
+    const listing = (await listingResp.json()) as ActiveListing;
+
+    const imagesResp = await fetch(`${bridgeUrl}/api/drafts/active/images`, {cache: 'no-store'});
+    const images = imagesResp.ok ? ((await imagesResp.json()) as ActiveImage[]) : [];
+
+    return {listing, images};
+}
+
 export interface SanitizeUrlResult {
     url?: string;
     error?: string;

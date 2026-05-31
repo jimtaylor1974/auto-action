@@ -29,6 +29,7 @@ public class MainWindowViewModel : ViewModelBase
     private readonly OpenAiClient _openAi;
     private readonly ICategoryService _categoryService;
     private readonly IPreflightService _preflight;
+    private readonly IListingGenerator _generator;
 
     private AppPage _currentPageEnum = AppPage.Home;
 
@@ -40,7 +41,8 @@ public class MainWindowViewModel : ViewModelBase
         LocalBridgeServer server,
         OpenAiClient openAi,
         ICategoryService categoryService,
-        IPreflightService preflight)
+        IPreflightService preflight,
+        IListingGenerator generator)
     {
         _draftService = draftService;
         _config = config;
@@ -50,12 +52,30 @@ public class MainWindowViewModel : ViewModelBase
         _openAi = openAi;
         _categoryService = categoryService;
         _preflight = preflight;
+        _generator = generator;
 
         NavigateToHomeCommand = ReactiveCommand.Create(NavigateToHome);
         NavigateToListedCommand = ReactiveCommand.Create(NavigateToListed);
         NavigateToSettingsCommand = ReactiveCommand.Create(NavigateToSettings);
         RecheckPreflightCommand = ReactiveCommand.CreateFromTask(RunPreflightAsync);
         ExitCommand = ReactiveCommand.Create(Exit);
+
+        // The bridge server raises this (off the UI thread) when the extension publishes a listing.
+        _server.ListingPublished += OnListingPublished;
+    }
+
+    private void OnListingPublished(DraftFolder listed)
+    {
+        void Apply()
+        {
+            StatusMessage = $"Listed on TradeMe: {listed.Listing.Title}";
+            NavigateToListed();
+        }
+
+        if (Dispatcher.UIThread.CheckAccess())
+            Apply();
+        else
+            Dispatcher.UIThread.Post(Apply);
     }
 
     private ViewModelBase? _currentPage;
@@ -154,7 +174,7 @@ public class MainWindowViewModel : ViewModelBase
     public void NavigateToDraft(DraftFolder draft)
     {
         SetPage(AppPage.DraftDetail);
-        CurrentPage = new DraftDetailViewModel(this, _draftService, _activeListing, draft);
+        CurrentPage = new DraftDetailViewModel(this, _draftService, _activeListing, _generator, _categoryService, draft);
         StatusMessage = "Editing draft";
     }
 

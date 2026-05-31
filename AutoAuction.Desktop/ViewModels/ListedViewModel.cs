@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Reactive;
 using AutoAuction.Core.Services;
+using AutoAuction.Desktop.Services;
 using ReactiveUI;
 
 namespace AutoAuction.Desktop.ViewModels;
@@ -25,6 +26,7 @@ public class ListedViewModel : ViewModelBase
     public ReactiveCommand<Unit, Unit> RefreshCommand { get; }
     public ReactiveCommand<DraftListItemViewModel, Unit> MarkSoldCommand { get; }
     public ReactiveCommand<DraftListItemViewModel, Unit> RelistCommand { get; }
+    public ReactiveCommand<DraftListItemViewModel, Unit> ViewOnTradeMeCommand { get; }
 
     public ListedViewModel(MainWindowViewModel shell, IDraftService draftService)
     {
@@ -34,8 +36,15 @@ public class ListedViewModel : ViewModelBase
         RefreshCommand = ReactiveCommand.Create(Refresh);
         MarkSoldCommand = ReactiveCommand.Create<DraftListItemViewModel>(MarkSold);
         RelistCommand = ReactiveCommand.Create<DraftListItemViewModel>(Relist);
+        ViewOnTradeMeCommand = ReactiveCommand.Create<DraftListItemViewModel>(ViewOnTradeMe);
 
         Refresh();
+    }
+
+    private static void ViewOnTradeMe(DraftListItemViewModel? item)
+    {
+        if (!string.IsNullOrWhiteSpace(item?.TradeMeListingUrl))
+            SystemFolder.OpenUrl(item.TradeMeListingUrl);
     }
 
     public void Refresh()

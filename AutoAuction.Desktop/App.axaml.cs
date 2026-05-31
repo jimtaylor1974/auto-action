@@ -34,6 +34,7 @@ public partial class App : Application
             SecretStore.ForCurrentPlatform(sp.GetRequiredService<IAppConfig>()));
         services.AddSingleton<OpenAiClient>();
         services.AddSingleton<IPreflightService, PreflightService>();
+        services.AddSingleton<IListingGenerator, ListingGenerator>();
 
         // View models.
         services.AddTransient<MainWindowViewModel>();

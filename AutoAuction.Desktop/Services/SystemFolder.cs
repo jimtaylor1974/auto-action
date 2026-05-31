@@ -35,4 +35,14 @@ public static class SystemFolder
             Process.Start("xdg-open", $"\"{folderPath}\"");
         }
     }
+
+    /// <summary>Opens a URL in the user's default browser. No-op if the URL is blank.</summary>
+    public static void OpenUrl(string url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            return;
+
+        // UseShellExecute lets the OS route the URL to the default browser cross-platform.
+        Process.Start(new ProcessStartInfo(url) {UseShellExecute = true});
+    }
 }

@@ -48,6 +48,18 @@ public interface ICategoryService
     /// trailing dash). Empty if the number is unknown or a leaf. This is the drill-down step.
     /// </summary>
     IReadOnlyList<CategorySummary> GetChildren(string number);
+
+    /// <summary>
+    /// Builds a human-readable category path for a number (e.g. "Home &amp; living › Lounge, dining
+    /// &amp; hall › Cabinets &amp; bookshelves › Sideboards &amp; buffets"), or null if not found.
+    /// </summary>
+    string? GetDisplayPath(string number);
+
+    /// <summary>
+    /// The category path as individual segment names (top-level first), for driving the TradeMe
+    /// category picker by name. Empty if the number is unknown.
+    /// </summary>
+    IReadOnlyList<string> GetPathSegments(string number);
 }
 
 /// <inheritdoc />
@@ -143,6 +155,45 @@ public sealed class CategoryService : ICategoryService
         return node is null
             ? Array.Empty<CategorySummary>()
             : node.Subcategories.Select(Summarize).ToList();
+    }
+
+    public string? GetDisplayPath(string number)
+    {
+        if (string.IsNullOrWhiteSpace(number))
+            return null;
+
+        var root = Load();
+        if (root is null)
+            return null;
+
+        var target = number.Trim().TrimEnd('-');
+        var names = new List<string>();
+        return BuildPath(root, target, names) ? string.Join(" › ", names) : null;
+    }
+
+    public IReadOnlyList<string> GetPathSegments(string number)
+    {
+        if (string.IsNullOrWhiteSpace(number))
+            return Array.Empty<string>();
+
+        var root = Load();
+        if (root is null)
+            return Array.Empty<string>();
+
+        var names = new List<string>();
+        return BuildPath(root, number.Trim().TrimEnd('-'), names) ? names : Array.Empty<string>();
+    }
+
+    private static bool BuildPath(TradeMeCategory node, string target, List<string> acc)
+    {
+        foreach (var child in node.Subcategories)
+        {
+            acc.Add(child.Name);
+            if (child.Number.TrimEnd('-') == target || BuildPath(child, target, acc))
+                return true;
+            acc.RemoveAt(acc.Count - 1);
+        }
+        return false;
     }
 
     private static CategorySummary Summarize(TradeMeCategory c) =>

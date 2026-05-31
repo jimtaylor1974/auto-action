@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace AutoAuction.Core.Services;
 
@@ -9,8 +10,9 @@ namespace AutoAuction.Core.Services;
 /// Built on <see cref="HttpListener"/> so it needs no extra dependencies and runs cross-platform.
 ///
 /// Endpoints (CORS-allowed for the TradeMe origin):
-///   GET /api/drafts/active         -> the active draft's listing.json
-///   GET /api/drafts/active/images  -> the active draft's images as base64
+///   GET  /api/drafts/active         -> the active draft's listing (+ CategoryPath names)
+///   GET  /api/drafts/active/images  -> the active draft's images as base64
+///   POST /api/drafts/active/listed  -> { listingId, listingUrl }: mark the active draft Listed
 /// </summary>
 public sealed class LocalBridgeServer : IDisposable
 {
@@ -22,6 +24,8 @@ public sealed class LocalBridgeServer : IDisposable
     };
 
     private readonly IActiveListingProvider _activeListing;
+    private readonly IDraftService _draftService;
+    private readonly ICategoryService _categories;
 
     private HttpListener? _listener;
     private CancellationTokenSource? _cts;
@@ -35,9 +39,17 @@ public sealed class LocalBridgeServer : IDisposable
     /// <summary>Raised when the running state changes, so the UI can refresh its indicator.</summary>
     public event Action? StateChanged;
 
-    public LocalBridgeServer(IActiveListingProvider activeListing)
+    /// <summary>Raised after the extension reports a published listing (the draft is now Listed).</summary>
+    public event Action<DraftFolder>? ListingPublished;
+
+    public LocalBridgeServer(
+        IActiveListingProvider activeListing,
+        IDraftService draftService,
+        ICategoryService categories)
     {
         _activeListing = activeListing;
+        _draftService = draftService;
+        _categories = categories;
     }
 
     public string Url => $"http://localhost:{Port}";
@@ -138,7 +150,7 @@ public sealed class LocalBridgeServer : IDisposable
 
         // CORS headers on every response so the extension (on trademe.co.nz) can call us.
         response.AddHeader("Access-Control-Allow-Origin", AllowedOrigin);
-        response.AddHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+        response.AddHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
         response.AddHeader("Access-Control-Allow-Headers", "Content-Type");
 
         if (string.Equals(request.HttpMethod, "OPTIONS", StringComparison.OrdinalIgnoreCase))
@@ -158,6 +170,9 @@ public sealed class LocalBridgeServer : IDisposable
             case "/api/drafts/active/images":
                 WriteActiveImages(response);
                 break;
+            case "/api/drafts/active/listed":
+                HandleListed(request, response);
+                break;
             default:
                 WriteStatus(response, 404, "{\"error\":\"not found\"}");
                 break;
@@ -167,17 +182,74 @@ public sealed class LocalBridgeServer : IDisposable
     private void WriteActiveListing(HttpListenerResponse response)
     {
         var folder = _activeListing.ActiveFolderPath;
-        var jsonPath = folder is null ? null : Path.Combine(folder, IDraftService.ListingFileName);
 
-        if (jsonPath is null || !File.Exists(jsonPath))
+        if (folder is null || !Directory.Exists(folder))
         {
             WriteStatus(response, 404, "{\"error\":\"no active draft\"}");
             return;
         }
 
-        // Serve the file as-is so the extension always gets the latest auto-saved data.
-        var json = File.ReadAllText(jsonPath);
-        WriteJson(response, 200, json);
+        // Load the latest listing and enrich it with the category name path so the extension can
+        // drive the TradeMe category picker (which is name-based) from the stored category number.
+        var listing = _draftService.LoadListing(folder);
+        var node = JsonSerializer.SerializeToNode(listing)!.AsObject();
+        var segments = _categories.GetPathSegments(listing.CategoryId);
+        node["CategoryPath"] = new JsonArray(segments.Select(s => JsonValue.Create(s)).ToArray<JsonNode?>());
+
+        WriteJson(response, 200, node.ToJsonString());
+    }
+
+    /// <summary>POST: the extension reports a published listing; mark the active draft Listed.</summary>
+    private void HandleListed(HttpListenerRequest request, HttpListenerResponse response)
+    {
+        if (!string.Equals(request.HttpMethod, "POST", StringComparison.OrdinalIgnoreCase))
+        {
+            WriteStatus(response, 405, "{\"error\":\"method not allowed\"}");
+            return;
+        }
+
+        var folder = _activeListing.ActiveFolderPath;
+        if (folder is null || !Directory.Exists(folder))
+        {
+            WriteStatus(response, 404, "{\"error\":\"no active draft\"}");
+            return;
+        }
+
+        string? listingId = null, listingUrl = null;
+        try
+        {
+            using var reader = new StreamReader(request.InputStream, request.ContentEncoding ?? Encoding.UTF8);
+            using var doc = JsonDocument.Parse(reader.ReadToEnd());
+            var root = doc.RootElement;
+            if (root.TryGetProperty("listingId", out var id)) listingId = id.GetString();
+            if (root.TryGetProperty("listingUrl", out var url)) listingUrl = url.GetString();
+        }
+        catch (JsonException)
+        {
+            WriteStatus(response, 400, "{\"error\":\"invalid json\"}");
+            return;
+        }
+
+        DraftFolder listed;
+        try
+        {
+            listed = _draftService.MarkListed(folder);
+        }
+        catch (Exception ex)
+        {
+            WriteStatus(response, 500, JsonSerializer.Serialize(new {error = ex.Message}));
+            return;
+        }
+
+        listed.Listing.TradeMeListingId = listingId;
+        listed.Listing.TradeMeListingUrl = listingUrl;
+        _draftService.SaveListing(listed.FolderPath, listed.Listing);
+
+        // The draft has moved to 3_Listed; it's no longer the active draft.
+        _activeListing.ActiveFolderPath = null;
+        ListingPublished?.Invoke(listed);
+
+        WriteStatus(response, 200, "{\"ok\":true}");
     }
 
     private void WriteActiveImages(HttpListenerResponse response)

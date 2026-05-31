@@ -43,10 +43,19 @@
                 <DataGridTextColumn Header="Title" Binding="{Binding DisplayTitle}" Width="*"/>
                 <DataGridTextColumn Header="Photos" Binding="{Binding PhotoCount}" Width="80"/>
                 <DataGridTextColumn Header="Status" Binding="{Binding StatusDisplay}" Width="90"/>
-                <DataGridTemplateColumn Header="Actions" Width="220">
+                <DataGridTemplateColumn Header="Actions" Width="320">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate x:DataType="vm:DraftListItemViewModel">
                             <StackPanel Orientation="Horizontal" Spacing="6" Margin="6,4">
+                                <Button Padding="6,3" IsVisible="{Binding HasTradeMeUrl}"
+                                        ToolTip.Tip="{Binding TradeMeListingUrl}"
+                                        Command="{Binding $parent[DataGrid].((vm:ListedViewModel)DataContext).ViewOnTradeMeCommand}"
+                                        CommandParameter="{Binding}">
+                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                        <mi:MaterialIcon Kind="OpenInNew" Width="14" Height="14"/>
+                                        <TextBlock Text="View on TradeMe" FontSize="12"/>
+                                    </StackPanel>
+                                </Button>
                                 <Button Padding="6,3"
                                         Command="{Binding $parent[DataGrid].((vm:ListedViewModel)DataContext).MarkSoldCommand}"
                                         CommandParameter="{Binding}">

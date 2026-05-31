@@ -28,6 +28,11 @@ public sealed class DraftListItemViewModel
 
     public string StatusDisplay { get; }
 
+    /// <summary>TradeMe listing URL (set once published), or null.</summary>
+    public string? TradeMeListingUrl { get; }
+
+    public bool HasTradeMeUrl { get; }
+
     public Bitmap? CoverThumbnail { get; }
 
     public DraftListItemViewModel(DraftFolder draft)
@@ -46,6 +51,9 @@ public sealed class DraftListItemViewModel
 
         Status = draft.Listing.Status;
         StatusDisplay = draft.Listing.Status.ToString();
+
+        TradeMeListingUrl = draft.Listing.TradeMeListingUrl;
+        HasTradeMeUrl = !string.IsNullOrWhiteSpace(TradeMeListingUrl);
 
         var firstImage = draft.Listing.LocalImagePaths.FirstOrDefault();
         if (firstImage is not null)

@@ -15,6 +15,20 @@
         <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml"/>
         <materialIcons:MaterialIconStyles />
 
+        <!-- Spin a Material icon while a long action runs (e.g. AI generation). -->
+        <Style Selector="materialIcons|MaterialIcon.spin">
+            <Style.Animations>
+                <Animation Duration="0:0:1.2" IterationCount="Infinite">
+                    <KeyFrame KeyTime="0:0:0">
+                        <Setter Property="RotateTransform.Angle" Value="0.0"/>
+                    </KeyFrame>
+                    <KeyFrame KeyTime="0:0:1.2">
+                        <Setter Property="RotateTransform.Angle" Value="360.0"/>
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
+
         <!-- Highlight a selected thumbnail in the gallery -->
         <Style Selector="Border.thumbSelected">
             <Setter Property="BorderBrush" Value="{DynamicResource SystemAccentColor}"/>

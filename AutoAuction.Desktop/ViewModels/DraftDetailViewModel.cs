@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.IO;
+using System.Linq;
 using System.Reactive;
 using System.Threading;
 using System.Threading.Tasks;
@@ -23,6 +24,8 @@ public class DraftDetailViewModel : ViewModelBase
 {
     private readonly IDraftService _draftService;
     private readonly IActiveListingProvider _activeListing;
+    private readonly IListingGenerator _generator;
+    private readonly ICategoryService _categories;
     private readonly MainWindowViewModel _shell;
     private string _folderPath;
 
@@ -36,6 +39,11 @@ public class DraftDetailViewModel : ViewModelBase
     public ObservableCollection<DraftImageViewModel> Images { get; } = new();
 
     public string Title => string.IsNullOrWhiteSpace(Listing.Title) ? "(untitled draft)" : Listing.Title;
+
+    /// <summary>Human-readable category path resolved from <c>Listing.CategoryId</c>.</summary>
+    public string CategoryPathDisplay => string.IsNullOrWhiteSpace(Listing.CategoryId)
+        ? string.Empty
+        : _categories.GetDisplayPath(Listing.CategoryId) ?? "Unknown category";
 
     private string _saveStatus = string.Empty;
     /// <summary>Status text shown in the editor (e.g. "Saved").</summary>
@@ -51,6 +59,57 @@ public class DraftDetailViewModel : ViewModelBase
     public ReactiveCommand<Unit, Unit> MarkListedCommand { get; }
     public ReactiveCommand<Unit, Unit> AddShippingOptionCommand { get; }
     public ReactiveCommand<ShippingOption, Unit> RemoveShippingOptionCommand { get; }
+    public ReactiveCommand<Unit, Unit> GenerateWithAiCommand { get; }
+    public ReactiveCommand<Unit, Unit> ApplyAiCommand { get; }
+    public ReactiveCommand<Unit, Unit> DiscardAiCommand { get; }
+
+    private bool _isGenerating;
+    public bool IsGenerating
+    {
+        get => _isGenerating;
+        set
+        {
+            this.RaiseAndSetIfChanged(ref _isGenerating, value);
+            this.RaisePropertyChanged(nameof(ShowGenerationLog));
+        }
+    }
+
+    /// <summary>Live, newest-first status lines emitted while the AI generator runs.</summary>
+    public ObservableCollection<string> GenerationLog { get; } = new();
+
+    public bool ShowGenerationLog => IsGenerating || GenerationLog.Count > 0;
+
+    /// <summary>The activity log (oldest-first) plus any error, for copying to the clipboard.</summary>
+    public string BuildDiagnosticsText()
+    {
+        var lines = GenerationLog.Reverse().ToList();
+        if (!string.IsNullOrWhiteSpace(AiError))
+            lines.Add($"ERROR: {AiError}");
+        return $"AutoAuction AI log — \"{Title}\"\n" + string.Join(Environment.NewLine, lines);
+    }
+
+    private string _aiError = string.Empty;
+    public string AiError
+    {
+        get => _aiError;
+        set => this.RaiseAndSetIfChanged(ref _aiError, value);
+    }
+
+    private AiPreviewViewModel? _aiPreview;
+    /// <summary>The AI's proposed fields, awaiting Apply/Discard. Null when there's no pending preview.</summary>
+    public AiPreviewViewModel? AiPreview
+    {
+        get => _aiPreview;
+        set
+        {
+            this.RaiseAndSetIfChanged(ref _aiPreview, value);
+            this.RaisePropertyChanged(nameof(HasAiPreview));
+        }
+    }
+
+    public bool HasAiPreview => _aiPreview is not null;
+
+    public bool CanGenerate => Images.Count > 0;
 
     // Option sources for the form's combo boxes.
     public IReadOnlyList<ConditionType> ConditionOptions { get; } = Enum.GetValues<ConditionType>();
@@ -61,13 +120,22 @@ public class DraftDetailViewModel : ViewModelBase
         MainWindowViewModel shell,
         IDraftService draftService,
         IActiveListingProvider activeListing,
+        IListingGenerator generator,
+        ICategoryService categories,
         DraftFolder draft)
     {
         _shell = shell;
         _draftService = draftService;
         _activeListing = activeListing;
+        _generator = generator;
+        _categories = categories;
         _folderPath = draft.FolderPath;
         Listing = draft.Listing;
+
+        // Load images BEFORE creating the AI command so its CanExecute sees the photos.
+        LoadImages();
+
+        GenerationLog.CollectionChanged += (_, _) => this.RaisePropertyChanged(nameof(ShowGenerationLog));
 
         BackCommand = ReactiveCommand.Create(Back);
         OpenFolderCommand = ReactiveCommand.Create(OpenFolder);
@@ -76,10 +144,14 @@ public class DraftDetailViewModel : ViewModelBase
         AddShippingOptionCommand = ReactiveCommand.Create(AddShippingOption);
         RemoveShippingOptionCommand = ReactiveCommand.Create<ShippingOption>(RemoveShippingOption);
 
+        var canGenerate = this.WhenAnyValue(x => x.IsGenerating, generating => !generating && CanGenerate);
+        GenerateWithAiCommand = ReactiveCommand.CreateFromTask(GenerateWithAiAsync, canGenerate);
+        ApplyAiCommand = ReactiveCommand.Create(ApplyAi);
+        DiscardAiCommand = ReactiveCommand.Create(() => { AiPreview = null; AiError = string.Empty; });
+
         // This draft is now the one the Chrome extension bridge should serve.
         _activeListing.ActiveFolderPath = _folderPath;
 
-        LoadImages();
         AttachChangeTracking();
     }
 
@@ -110,6 +182,8 @@ public class DraftDetailViewModel : ViewModelBase
     {
         if (e.PropertyName == nameof(ListingModel.Title))
             this.RaisePropertyChanged(nameof(Title));
+        if (e.PropertyName == nameof(ListingModel.CategoryId))
+            this.RaisePropertyChanged(nameof(CategoryPathDisplay));
         ScheduleSave();
     }
 
@@ -156,6 +230,72 @@ public class DraftDetailViewModel : ViewModelBase
         _shell.StatusMessage = $"Listed: {Title}";
         _shell.NavigateToListed();
     }
+
+    /// <summary>Runs AI generation on the draft's photos; result lands in <see cref="AiPreview"/>.</summary>
+    private async Task GenerateWithAiAsync()
+    {
+        AiError = string.Empty;
+        AiPreview = null;
+        GenerationLog.Clear();
+        IsGenerating = true;
+
+        // Progress is created on the UI thread, so its callbacks marshal back here for live updates.
+        var progress = new Progress<string>(line =>
+            GenerationLog.Insert(0, $"{DateTime.Now:HH:mm:ss}  {line}"));
+
+        try
+        {
+            var result = await _generator.GenerateAsync(new DraftFolder(_folderPath, Listing), progress);
+            if (result.Ok && result.Fields is not null)
+                AiPreview = new AiPreviewViewModel(result.Fields);
+            else
+                AiError = result.Error ?? "AI generation failed.";
+        }
+        catch (Exception ex)
+        {
+            AiError = ex.Message;
+        }
+        finally
+        {
+            IsGenerating = false;
+        }
+    }
+
+    /// <summary>Writes the previewed AI fields into the listing (auto-save then persists them).</summary>
+    private void ApplyAi()
+    {
+        if (AiPreview is null)
+            return;
+
+        var f = AiPreview.Fields;
+        Listing.Title = Truncate(f.Title, 50);
+        Listing.Subtitle = Truncate(f.Subtitle, 50);
+        Listing.CategoryId = f.CategoryNumber;
+        Listing.Condition = string.Equals(f.Condition, "New", StringComparison.OrdinalIgnoreCase)
+            ? ConditionType.New
+            : ConditionType.Used;
+        Listing.Description = f.Description;
+        Listing.AiImageDescription = f.ImageDescription;
+        Listing.IsBuyNowOnly = f.IsBuyNowOnly;
+        Listing.StartPrice = f.StartPrice;
+        Listing.ReservePrice = f.ReservePrice;
+        Listing.BuyNowPrice = f.BuyNowPrice;
+        Listing.DurationDays = DurationOptions.Contains(f.DurationDays) ? f.DurationDays : 7;
+        Listing.PickupOption = Enum.TryParse<PickupOption>(f.PickupOption, ignoreCase: true, out var pickup)
+            ? pickup
+            : PickupOption.Allow;
+        Listing.IsFreeShipping = f.IsFreeShipping;
+
+        Listing.ShippingOptions.Clear();
+        foreach (var s in f.ShippingOptions)
+            Listing.ShippingOptions.Add(new ShippingOption {Method = s.Method, Price = s.Price});
+
+        _shell.StatusMessage = "Applied AI draft";
+        AiPreview = null;
+    }
+
+    private static string Truncate(string value, int max) =>
+        string.IsNullOrEmpty(value) || value.Length <= max ? value : value[..max];
 
     private void AddShippingOption() => Listing.ShippingOptions.Add(new ShippingOption());
 

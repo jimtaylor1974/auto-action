@@ -1,0 +1,144 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:AutoAuction.Desktop.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:mi="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+        mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="800"
+        x:Class="AutoAuction.Desktop.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="AutoAuction"
+        Width="1200" Height="800"
+        MinWidth="950" MinHeight="600">
+
+    <Grid RowDefinitions="*,Auto">
+        <Grid Grid.Row="0" ColumnDefinitions="340,*">
+
+            <!-- ===== Left: Inbox gallery + Drafts list ===== -->
+            <Border Grid.Column="0"
+                    Background="{DynamicResource SystemControlBackgroundAltMediumHighBrush}"
+                    BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                    BorderThickness="0,0,1,0">
+                <Grid RowDefinitions="Auto,*,Auto,Auto,Auto,2*">
+
+                    <!-- Inbox header -->
+                    <StackPanel Grid.Row="0" Margin="12,12,12,4" Spacing="2">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <mi:MaterialIcon Kind="Inbox" Width="20" Height="20"/>
+                            <TextBlock Text="Inbox" FontSize="16" FontWeight="SemiBold"
+                                       VerticalAlignment="Center"/>
+                            <Button Command="{Binding RefreshInboxCommand}"
+                                    ToolTip.Tip="Rescan the inbox folder"
+                                    Padding="4" Background="Transparent"
+                                    VerticalAlignment="Center">
+                                <mi:MaterialIcon Kind="Refresh" Width="16" Height="16"/>
+                            </Button>
+                        </StackPanel>
+                        <TextBlock Text="Drop photos into the inbox folder, then tick the ones to turn into a draft."
+                                   FontSize="11" TextWrapping="Wrap" Opacity="0.7"/>
+                    </StackPanel>
+
+                    <!-- Inbox thumbnails -->
+                    <ScrollViewer Grid.Row="1" Padding="12,4">
+                        <ItemsControl ItemsSource="{Binding InboxImages}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel Orientation="Horizontal"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:InboxImageViewModel">
+                                    <Border Margin="4" Padding="2" CornerRadius="4"
+                                            BorderThickness="3" BorderBrush="Transparent"
+                                            Classes.thumbSelected="{Binding IsSelected}">
+                                        <StackPanel Width="92">
+                                            <Border CornerRadius="3" ClipToBounds="True"
+                                                    Height="92" Background="#22000000">
+                                                <Image Source="{Binding Thumbnail}"
+                                                       Stretch="UniformToFill"/>
+                                            </Border>
+                                            <CheckBox Content="{Binding FileName}"
+                                                      IsChecked="{Binding IsSelected}"
+                                                      FontSize="10" Margin="0,2,0,0"
+                                                      MaxWidth="92"/>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+
+                    <!-- Empty inbox hint -->
+                    <TextBlock Grid.Row="1" Text="No photos in the inbox yet."
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Opacity="0.5" FontSize="12"
+                               IsVisible="{Binding !InboxImages.Count}"/>
+
+                    <!-- Create Draft button -->
+                    <Button Grid.Row="2" Margin="12,4,12,12"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Center"
+                            Command="{Binding CreateDraftCommand}"
+                            Classes="accent">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <mi:MaterialIcon Kind="PlusBox" Width="18" Height="18"/>
+                            <TextBlock Text="Create Draft from selected"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Separator Grid.Row="3" Margin="12,0"/>
+
+                    <!-- Drafts header -->
+                    <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="8"
+                                Margin="12,12,12,4">
+                        <mi:MaterialIcon Kind="FileDocumentEdit" Width="20" Height="20"/>
+                        <TextBlock Text="Drafts" FontSize="16" FontWeight="SemiBold"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <!-- Drafts list -->
+                    <ListBox Grid.Row="5" Margin="6,0,6,8"
+                             Background="Transparent"
+                             ItemsSource="{Binding Drafts}"
+                             SelectedItem="{Binding SelectedDraft}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:DraftListItemViewModel">
+                                <Grid ColumnDefinitions="Auto,*" Height="48">
+                                    <Border Grid.Column="0" Width="44" Height="44"
+                                            CornerRadius="3" ClipToBounds="True"
+                                            Background="#22000000" Margin="0,0,8,0">
+                                        <Image Source="{Binding CoverThumbnail}"
+                                               Stretch="UniformToFill"/>
+                                    </Border>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding DisplayTitle}"
+                                                   FontWeight="SemiBold"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Text="{Binding Summary}"
+                                                   FontSize="11" Opacity="0.6"/>
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </Border>
+
+            <!-- ===== Right: Draft editor ===== -->
+            <Panel Grid.Column="1">
+                <ContentControl Content="{Binding CurrentDraft}"/>
+                <TextBlock IsVisible="{Binding CurrentDraft, Converter={x:Static ObjectConverters.IsNull}}"
+                           Text="Select a draft to edit, or create one from the inbox."
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Opacity="0.5" FontSize="14"/>
+            </Panel>
+        </Grid>
+
+        <!-- Status bar -->
+        <Border Grid.Row="1"
+                Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
+                Padding="16,6">
+            <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center" FontSize="12"/>
+        </Border>
+    </Grid>
+</Window>

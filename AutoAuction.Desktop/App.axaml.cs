@@ -33,6 +33,7 @@ public partial class App : Application
         services.AddSingleton<ISecretStore>(sp =>
             SecretStore.ForCurrentPlatform(sp.GetRequiredService<IAppConfig>()));
         services.AddSingleton<OpenAiClient>();
+        services.AddSingleton<IPreflightService, PreflightService>();
 
         // View models.
         services.AddTransient<MainWindowViewModel>();

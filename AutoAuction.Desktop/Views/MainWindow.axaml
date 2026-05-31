@@ -11,7 +11,7 @@
         Width="1200" Height="800"
         MinWidth="950" MinHeight="600">
 
-    <Grid RowDefinitions="Auto,*,Auto">
+    <Grid RowDefinitions="Auto,Auto,*,Auto">
 
         <!-- Top menu -->
         <Menu Grid.Row="0" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}">
@@ -25,8 +25,23 @@
             </MenuItem>
         </Menu>
 
+        <!-- Preflight nudge: shown only when a launch check fails. -->
+        <Border Grid.Row="1" IsVisible="{Binding HasPreflightIssues}"
+                Background="#40E0A106" BorderBrush="#80E0A106" BorderThickness="0,0,0,1"
+                Padding="16,10">
+            <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                <mi:MaterialIcon Grid.Column="0" Kind="AlertOutline" Width="20" Height="20"
+                                 VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Text="{Binding PreflightSummary}" TextWrapping="Wrap"
+                           VerticalAlignment="Center" Margin="10,0"/>
+                <Button Grid.Column="2" Content="Open Settings"
+                        Command="{Binding NavigateToSettingsCommand}" Margin="0,0,8,0"/>
+                <Button Grid.Column="3" Content="Re-check" Command="{Binding RecheckPreflightCommand}"/>
+            </Grid>
+        </Border>
+
         <!-- Body: left nav rail + content -->
-        <Grid Grid.Row="1" ColumnDefinitions="90,*">
+        <Grid Grid.Row="2" ColumnDefinitions="90,*">
             <Border Grid.Column="0" Background="{DynamicResource SystemControlBackgroundAltMediumHighBrush}"
                     BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
                     BorderThickness="0,0,1,0">
@@ -68,7 +83,7 @@
         </Grid>
 
         <!-- Status bar -->
-        <Border Grid.Row="2"
+        <Border Grid.Row="3"
                 Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
                 Padding="16,6">
             <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center" FontSize="12"/>

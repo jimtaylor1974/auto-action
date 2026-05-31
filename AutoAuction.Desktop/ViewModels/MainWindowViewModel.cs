@@ -1,6 +1,8 @@
 using System;
 using System.Reactive;
+using System.Threading.Tasks;
 using AutoAuction.Core.Services;
+using Avalonia.Threading;
 using ReactiveUI;
 
 namespace AutoAuction.Desktop.ViewModels;
@@ -26,6 +28,7 @@ public class MainWindowViewModel : ViewModelBase
     private readonly LocalBridgeServer _server;
     private readonly OpenAiClient _openAi;
     private readonly ICategoryService _categoryService;
+    private readonly IPreflightService _preflight;
 
     private AppPage _currentPageEnum = AppPage.Home;
 
@@ -36,7 +39,8 @@ public class MainWindowViewModel : ViewModelBase
         IActiveListingProvider activeListing,
         LocalBridgeServer server,
         OpenAiClient openAi,
-        ICategoryService categoryService)
+        ICategoryService categoryService,
+        IPreflightService preflight)
     {
         _draftService = draftService;
         _config = config;
@@ -45,10 +49,12 @@ public class MainWindowViewModel : ViewModelBase
         _server = server;
         _openAi = openAi;
         _categoryService = categoryService;
+        _preflight = preflight;
 
         NavigateToHomeCommand = ReactiveCommand.Create(NavigateToHome);
         NavigateToListedCommand = ReactiveCommand.Create(NavigateToListed);
         NavigateToSettingsCommand = ReactiveCommand.Create(NavigateToSettings);
+        RecheckPreflightCommand = ReactiveCommand.CreateFromTask(RunPreflightAsync);
         ExitCommand = ReactiveCommand.Create(Exit);
     }
 
@@ -69,7 +75,25 @@ public class MainWindowViewModel : ViewModelBase
     public ReactiveCommand<Unit, Unit> NavigateToHomeCommand { get; }
     public ReactiveCommand<Unit, Unit> NavigateToListedCommand { get; }
     public ReactiveCommand<Unit, Unit> NavigateToSettingsCommand { get; }
+    public ReactiveCommand<Unit, Unit> RecheckPreflightCommand { get; }
     public ReactiveCommand<Unit, Unit> ExitCommand { get; }
+
+    // --- Preflight banner ------------------------------------------------------------------
+    // A shell-wide nudge shown when launch checks fail (no internet, no categories, no key).
+
+    private bool _hasPreflightIssues;
+    public bool HasPreflightIssues
+    {
+        get => _hasPreflightIssues;
+        set => this.RaiseAndSetIfChanged(ref _hasPreflightIssues, value);
+    }
+
+    private string _preflightSummary = string.Empty;
+    public string PreflightSummary
+    {
+        get => _preflightSummary;
+        set => this.RaiseAndSetIfChanged(ref _preflightSummary, value);
+    }
 
     // Selection state for the navigation rail highlight.
     public bool IsHomeSelected => _currentPageEnum == AppPage.Home;
@@ -77,7 +101,33 @@ public class MainWindowViewModel : ViewModelBase
     public bool IsSettingsSelected => _currentPageEnum == AppPage.Settings;
 
     /// <summary>Called once the window is shown to display the first page.</summary>
-    public void Initialize() => NavigateToHome();
+    public void Initialize()
+    {
+        NavigateToHome();
+        _ = RunPreflightAsync();
+    }
+
+    /// <summary>
+    /// Runs the launch checks off the UI thread and updates the banner. Safe to call
+    /// fire-and-forget; property writes are marshalled back to the UI thread.
+    /// </summary>
+    private async Task RunPreflightAsync()
+    {
+        var report = await _preflight.RunAsync();
+
+        void Apply()
+        {
+            HasPreflightIssues = !report.AllOk;
+            PreflightSummary = report.AllOk
+                ? string.Empty
+                : $"Setup needed: {report.FailureSummary}. Open Settings to finish.";
+        }
+
+        if (Dispatcher.UIThread.CheckAccess())
+            Apply();
+        else
+            Dispatcher.UIThread.Post(Apply);
+    }
 
     private void SetPage(AppPage page)
     {
@@ -89,10 +139,16 @@ public class MainWindowViewModel : ViewModelBase
 
     public void NavigateToHome()
     {
+        // Re-check after the user has been in Settings (where they'd fix a failed check).
+        var cameFromSettings = _currentPageEnum == AppPage.Settings;
+
         _activeListing.ActiveFolderPath = null;
         SetPage(AppPage.Home);
         CurrentPage = new HomeViewModel(this, _draftService, _config);
         StatusMessage = "Home";
+
+        if (cameFromSettings)
+            _ = RunPreflightAsync();
     }
 
     public void NavigateToDraft(DraftFolder draft)

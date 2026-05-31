@@ -27,6 +27,7 @@ extension bridge** driving the real, authenticated browser session:
 *   **Home:** Inbox gallery (drag/drop + Add, multi-select) on the left; **Drafts DataGrid** on the right. Double-click a draft → full-page **Draft Detail** editor (auto-save, Discard, Open folder, **Mark as Listed**).
 *   **Listed:** DataGrid of `3_Listed` items with **Mark Sold** and **Relist** per row.
 *   **Settings:** bridge server (port / URL / find-free-port / start-stop / auto-start), OpenAI key + model, app-folder access.
+*   **Preflight banner:** on launch `PreflightService` checks internet, cached categories, and a stored OpenAI key; a shell-wide banner (below the menu) nudges the user to Settings when any check fails, with Open Settings / Re-check, and auto-hides once everything passes.
 
 ---
 

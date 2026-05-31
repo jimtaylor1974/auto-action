@@ -72,6 +72,35 @@ const clickNext = () => byText('button', 'Next')?.click();
 
 const onStep = (re: RegExp) => () => (re.test(location.pathname) ? location.href : null);
 
+// Collect any validation / error text currently shown (helps diagnose a stuck step).
+function collectValidation(): string {
+    const msgs = Array.from(
+        document.querySelectorAll<HTMLElement>(
+            '.o-input__footer, [role=alert], [class*="error"], [class*="validation"]'
+        )
+    )
+        .map(e => norm(e.innerText))
+        .filter(Boolean);
+    return Array.from(new Set(msgs)).slice(0, 3).join(' | ');
+}
+
+// Click "Next" and wait to land on the target step. TradeMe can be slow / rate-limited (429),
+// so wait generously and retry the click once before giving up.
+async function advance(targetRe: RegExp, what: string, report: Report): Promise<void> {
+    clickNext();
+    if (await waitFor(onStep(targetRe), 18000)) return;
+
+    report(`Still on "${location.pathname.split('/').pop()}" — retrying Next…`);
+    await sleep(1000);
+    clickNext();
+    if (await waitFor(onStep(targetRe), 18000)) return;
+
+    const err = collectValidation();
+    throw new Error(
+        `Could not reach ${what} (still at ${location.pathname}${err ? `; page says: ${err}` : ''}).`
+    );
+}
+
 // Select a custom radio/checkbox by the visible text of its associated <label for>.
 function selectByLabel(inputName: string, labelMatch: RegExp): boolean {
     const radios = Array.from(
@@ -124,6 +153,21 @@ export async function step_titleCategory(data: FillData, report: Report): Promis
     }
     await waitFor(() => !document.querySelector('.o-modal__dialog'));
 
+    // If the modal is still open, the last path segment wasn't a final category in TradeMe's tree.
+    if (document.querySelector('.o-modal__dialog')) {
+        const kids = Array.from(
+            document.querySelectorAll<HTMLElement>(
+                'tm-tree-picker .tm-tree-picker__children tg-media-block-content'
+            )
+        )
+            .map(e => norm(e.textContent))
+            .slice(0, 12);
+        const last = data.categoryPath[data.categoryPath.length - 1];
+        throw new Error(
+            `Category "${last}" isn't final on TradeMe; it still offers: ${kids.join(', ') || '(none)'}`
+        );
+    }
+
     if (data.subtitle) {
         const sub = Array.from(
             document.querySelectorAll<HTMLElement>('tg-input-container,.o-input')
@@ -131,8 +175,12 @@ export async function step_titleCategory(data: FillData, report: Report): Promis
         setInputValue(sub?.querySelector('input'), data.subtitle);
     }
 
-    clickNext();
-    if (!(await waitFor(onStep(/item-details/)))) throw new Error('Could not reach Item details.');
+    // Let the category save commit before advancing — the "Choose category" button is replaced
+    // once a category is set. Clicking Next too soon makes TradeMe bounce back to the draft picker.
+    await waitFor(() => !document.querySelector('.koru-category-selector__choose-button'), 8000);
+    await sleep(1000);
+
+    await advance(/item-details/, 'Item details', report);
 }
 
 export async function step_itemDetails(data: FillData, report: Report): Promise<void> {
@@ -141,27 +189,54 @@ export async function step_itemDetails(data: FillData, report: Report): Promise<
     selectByLabel('attribute:Condition', new RegExp(`^${data.condition}$`, 'i'));
     report(`Description + Condition: ${data.condition}`);
     await sleep(300);
-    clickNext();
-    if (!(await waitFor(onStep(/photos/)))) throw new Error('Could not reach Photos.');
+    await advance(/photos/, 'Photos', report);
 }
 
-export async function step_photos(images: FillImage[], report: Report): Promise<void> {
-    const input = await waitFor(() =>
-        document.querySelector<HTMLInputElement>('input[name="listing-progress-add-photo"]')
+/** Attaches files in the page's MAIN world (the content-script world can't set input.files). */
+export type AttachPhotos = () => Promise<{ok: boolean; filesLength?: number; reason?: string} | undefined>;
+
+export async function step_photos(
+    images: FillImage[],
+    report: Report,
+    attachPhotos: AttachPhotos
+): Promise<void> {
+    const input = await waitFor(
+        () =>
+            document.querySelector<HTMLInputElement>('input[name="listing-progress-add-photo"]') ??
+            document.querySelector<HTMLInputElement>('input[type=file]'),
+        20000
     );
-    if (input && images.length) {
-        const dt = new DataTransfer();
-        for (const img of images) {
-            const bytes = Uint8Array.from(atob(img.base64), c => c.charCodeAt(0));
-            dt.items.add(new File([bytes], img.fileName, {type: img.contentType}));
-        }
-        input.files = dt.files;
-        input.dispatchEvent(new Event('change', {bubbles: true}));
-        report(`Uploading ${images.length} photo(s)…`);
-        await sleep(2500);
-    }
-    clickNext();
-    if (!(await waitFor(onStep(/price-payment/)))) throw new Error('Could not reach Price & payment.');
+
+    if (!input) throw new Error('Photo upload field not found on the Photos step.');
+    if (!images.length) throw new Error('No images were provided for this listing.');
+
+    // Delegate the actual DataTransfer to the MAIN world (assigning input.files from the isolated
+    // content-script world is silently dropped — verified: input.files.length stayed 0).
+    report(`Attaching ${images.length} photo(s) in the page context…`);
+    const res = await attachPhotos();
+    if (!res?.ok) throw new Error(`Photo attach failed${res?.reason ? `: ${res.reason}` : ''}.`);
+    report(`input.files.length=${res.filesLength ?? '?'} after main-world assignment`);
+
+    // Wait for the photo card(s) to appear (upload registered) before advancing.
+    await waitFor(() => document.querySelectorAll('tm-sdui-photo-card').length > 0, 30000);
+    const cards = document.querySelectorAll('tm-sdui-photo-card').length;
+    const rejected = document.querySelectorAll('.tm-sdui-photo-card__error').length;
+    const errText = Array.from(
+        document.querySelectorAll<HTMLElement>('.tm-sdui-photo-card__error, [role=alert]')
+    )
+        .map(e => norm(e.innerText))
+        .filter(Boolean)
+        .slice(0, 3)
+        .join(' | ');
+    report(`photo cards=${cards} rejected=${rejected}${errText ? ` :: ${errText}` : ''}`);
+
+    if (cards === 0)
+        throw new Error('Photo did not attach (0 cards). See the photo diagnostics above.');
+    if (rejected >= cards)
+        throw new Error(`TradeMe rejected the photo${errText ? `: ${errText}` : ''}.`);
+
+    await sleep(1500);
+    await advance(/price-payment/, 'Price & payment', report);
 }
 
 export async function step_pricePayment(data: FillData, report: Report): Promise<void> {
@@ -195,8 +270,7 @@ export async function step_pricePayment(data: FillData, report: Report): Promise
     report(auction ? `Auction · start $${data.startPrice}` : `Buy Now $${data.buyNowPrice}`);
 
     await sleep(300);
-    clickNext();
-    if (!(await waitFor(onStep(/delivery/)))) throw new Error('Could not reach Shipping.');
+    await advance(/delivery/, 'Shipping', report);
 }
 
 export async function step_delivery(data: FillData, report: Report): Promise<void> {
@@ -205,8 +279,7 @@ export async function step_delivery(data: FillData, report: Report): Promise<voi
     byTextStarts('label,[role=radio],button,tg-radio', label)?.click();
     report(data.isFreeShipping ? 'Shipping: free' : 'Shipping: costs unknown');
     await sleep(300);
-    clickNext();
-    if (!(await waitFor(onStep(/promote/)))) throw new Error('Could not reach Promote.');
+    await advance(/promote/, 'Promote', report);
 }
 
 export async function step_promote(data: FillData, report: Report): Promise<void> {

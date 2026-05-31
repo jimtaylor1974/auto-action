@@ -79,7 +79,10 @@ function toFillData(l: ActiveListing): FillData {
 
         await step_titleCategory(data, report);
         await step_itemDetails(data, report);
-        await step_photos(images, report);
+        // The side panel performs the file attach in the MAIN world and replies with the result.
+        await step_photos(images, report, () =>
+            chrome.runtime.sendMessage({source: 'aa-fill', kind: 'inject-photos'})
+        );
         await step_pricePayment(data, report);
         await step_delivery(data, report);
         await step_promote(data, report);

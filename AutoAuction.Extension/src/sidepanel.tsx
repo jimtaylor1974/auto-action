@@ -10,10 +10,31 @@ import {
     storeBridgeUrl,
     testBridgeConnection
 } from './bridge';
-import {BridgeTestResult, FillMessage} from './types';
+import {ActiveImage, BridgeTestResult, FillMessage} from './types';
 
 const STATUS_LABELS = ['Draft', 'Listed', 'Sold'];
 const CREATE_LISTING_URL = 'https://www.trademe.co.nz/a/marketplace/create-listing';
+
+// Runs in the page's MAIN world (injected with world:'MAIN'), where assigning input.files and
+// building File objects works — unlike the isolated content-script world. Must be self-contained.
+function mainWorldAttachPhotos(images: {fileName: string; contentType: string; base64: string}[]) {
+    const input = (document.querySelector('input[name="listing-progress-add-photo"]') ||
+        document.querySelector('input[type=file]')) as HTMLInputElement | null;
+    if (!input) return {ok: false, reason: 'no file input'};
+    try {
+        const dt = new DataTransfer();
+        for (const img of images) {
+            const bytes = Uint8Array.from(atob(img.base64), c => c.charCodeAt(0));
+            dt.items.add(new File([bytes], img.fileName, {type: img.contentType || 'image/jpeg'}));
+        }
+        input.files = dt.files;
+        input.dispatchEvent(new Event('input', {bubbles: true}));
+        input.dispatchEvent(new Event('change', {bubbles: true}));
+        return {ok: true, filesLength: input.files.length};
+    } catch (e) {
+        return {ok: false, reason: e instanceof Error ? e.message : String(e)};
+    }
+}
 
 interface TestLogEntry {
     id: string;
@@ -57,6 +78,7 @@ const App: React.FC = () => {
 
     const tabIdRef = useRef<number | null>(null);
     const bridgeUrlRef = useRef(DEFAULT_BRIDGE_URL);
+    const imagesRef = useRef<ActiveImage[]>([]);
 
     const sanitized = useMemo(() => sanitizeBridgeUrl(bridgeUrlInput), [bridgeUrlInput]);
 
@@ -70,10 +92,36 @@ const App: React.FC = () => {
         };
     }, []);
 
-    // Listen for progress/ready/listed/error from the injected fill script + service worker.
+    // Listen for progress/ready/listed/error + the MAIN-world photo-attach request.
     useEffect(() => {
-        const onMessage = (message: FillMessage) => {
+        const onMessage = (
+            message: FillMessage | {source: 'aa-fill'; kind: 'inject-photos'},
+            _sender: chrome.runtime.MessageSender,
+            sendResponse: (r: unknown) => void
+        ): boolean | void => {
             if (message?.source !== 'aa-fill') return;
+
+            // Content script asks us to attach the photos in the page's MAIN world.
+            if (message.kind === 'inject-photos') {
+                const tabId = tabIdRef.current;
+                if (tabId == null) {
+                    sendResponse({ok: false, reason: 'no tab'});
+                    return true;
+                }
+                chrome.scripting
+                    .executeScript({
+                        target: {tabId},
+                        world: 'MAIN',
+                        func: mainWorldAttachPhotos,
+                        args: [imagesRef.current]
+                    })
+                    .then(res => sendResponse(res?.[0]?.result ?? {ok: false, reason: 'no result'}))
+                    .catch(e =>
+                        sendResponse({ok: false, reason: e instanceof Error ? e.message : String(e)})
+                    );
+                return true; // keep the message channel open for the async response
+            }
+
             const stamp = new Date().toLocaleTimeString();
             switch (message.kind) {
                 case 'progress':
@@ -145,6 +193,7 @@ const App: React.FC = () => {
             note(`GET ${bridgeUrl}/api/drafts/active …`);
             const payload = await fetchActivePayload(bridgeUrl);
             note(`Draft "${payload.listing.Title}" + ${payload.images.length} image(s) loaded.`);
+            imagesRef.current = payload.images;
             await chrome.storage.local.set({'aa-fill-payload': payload});
 
             const tabId = await findOrCreateTradeMeTab();

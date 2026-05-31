@@ -12,12 +12,32 @@
 
     <Application.Styles>
         <FluentTheme />
+        <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml"/>
         <materialIcons:MaterialIconStyles />
 
         <!-- Highlight a selected thumbnail in the gallery -->
         <Style Selector="Border.thumbSelected">
             <Setter Property="BorderBrush" Value="{DynamicResource SystemAccentColor}"/>
             <Setter Property="BorderThickness" Value="3"/>
+        </Style>
+
+        <!-- Navigation rail: selected item highlight (mirrors pii-scanner) -->
+        <Style Selector="Button.selected">
+            <Setter Property="Background" Value="{DynamicResource SystemAccentColor}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="CornerRadius" Value="4"/>
+        </Style>
+        <Style Selector="Button.selected /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SystemAccentColor}"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+        <Style Selector="Button.selected:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SystemAccentColorLight1}"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+        <Style Selector="Button.selected:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SystemAccentColorDark1}"/>
+            <Setter Property="Foreground" Value="White"/>
         </Style>
     </Application.Styles>
 </Application>

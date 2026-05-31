@@ -28,6 +28,24 @@ public interface IDraftService
     /// <summary>Loads every draft folder and its listing, newest first.</summary>
     IReadOnlyList<DraftFolder> GetDrafts();
 
+    /// <summary>Loads every listed folder (under 3_Listed) and its listing, newest first.</summary>
+    IReadOnlyList<DraftFolder> GetListed();
+
+    /// <summary>
+    /// Moves a draft folder from 2_Drafts to 3_Listed and stamps it as Listed.
+    /// Returns the new <see cref="DraftFolder"/> at its 3_Listed location.
+    /// </summary>
+    DraftFolder MarkListed(string draftFolderPath);
+
+    /// <summary>Marks a listed folder's listing as Sold (stays in 3_Listed).</summary>
+    void MarkSold(string listedFolderPath);
+
+    /// <summary>
+    /// Moves a listed folder back from 3_Listed to 2_Drafts and resets it to Draft status.
+    /// Returns the new <see cref="DraftFolder"/> at its 2_Drafts location.
+    /// </summary>
+    DraftFolder Relist(string listedFolderPath);
+
     /// <summary>
     /// Creates a new draft: generates a unique folder under Drafts, moves the given
     /// inbox images into it, and writes a default <c>listing.json</c>.
@@ -138,21 +156,74 @@ public sealed class DraftService : IDraftService
         }
     }
 
-    public IReadOnlyList<DraftFolder> GetDrafts()
+    public IReadOnlyList<DraftFolder> GetDrafts() => LoadFolderListings(_config.DraftsPath);
+
+    public IReadOnlyList<DraftFolder> GetListed() => LoadFolderListings(_config.ListedPath);
+
+    /// <summary>Loads every sub-folder of <paramref name="parentPath"/> and its listing, newest first.</summary>
+    private IReadOnlyList<DraftFolder> LoadFolderListings(string parentPath)
     {
-        if (!Directory.Exists(_config.DraftsPath))
+        if (!Directory.Exists(parentPath))
             return Array.Empty<DraftFolder>();
 
-        var drafts = new List<DraftFolder>();
-        foreach (var folder in Directory.EnumerateDirectories(_config.DraftsPath))
+        var items = new List<DraftFolder>();
+        foreach (var folder in Directory.EnumerateDirectories(parentPath))
         {
             var listing = LoadListing(folder);
-            drafts.Add(new DraftFolder(folder, listing));
+            items.Add(new DraftFolder(folder, listing));
         }
 
-        return drafts
+        return items
             .OrderByDescending(d => d.Listing.CreatedUtc)
             .ToList();
+    }
+
+    public DraftFolder MarkListed(string draftFolderPath)
+    {
+        var dest = MoveFolder(draftFolderPath, _config.ListedPath);
+        var listing = LoadListing(dest);
+        listing.Status = ListingStatus.Listed;
+        listing.ListedUtc = DateTime.UtcNow;
+        SaveListing(dest, listing);
+        return new DraftFolder(dest, listing);
+    }
+
+    public void MarkSold(string listedFolderPath)
+    {
+        var listing = LoadListing(listedFolderPath);
+        listing.Status = ListingStatus.Sold;
+        listing.SoldUtc = DateTime.UtcNow;
+        SaveListing(listedFolderPath, listing);
+    }
+
+    public DraftFolder Relist(string listedFolderPath)
+    {
+        var dest = MoveFolder(listedFolderPath, _config.DraftsPath);
+        var listing = LoadListing(dest);
+        listing.Status = ListingStatus.Draft;
+        listing.ListedUtc = null;
+        listing.SoldUtc = null;
+        SaveListing(dest, listing);
+        return new DraftFolder(dest, listing);
+    }
+
+    /// <summary>Moves a folder into <paramref name="targetParent"/>, avoiding name collisions.</summary>
+    private static string MoveFolder(string sourceFolder, string targetParent)
+    {
+        Directory.CreateDirectory(targetParent);
+
+        var name = Path.GetFileName(sourceFolder.TrimEnd(Path.DirectorySeparatorChar));
+        var dest = Path.Combine(targetParent, name);
+
+        var counter = 1;
+        while (Directory.Exists(dest))
+        {
+            dest = Path.Combine(targetParent, $"{name}_{counter}");
+            counter++;
+        }
+
+        Directory.Move(sourceFolder, dest);
+        return dest;
     }
 
     public DraftFolder CreateDraft(IEnumerable<string> inboxImagePaths)

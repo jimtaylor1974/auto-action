@@ -1,0 +1,78 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:AutoAuction.Desktop.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:mi="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+             mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="700"
+             x:Class="AutoAuction.Desktop.Views.ListedView"
+             x:DataType="vm:ListedViewModel">
+
+    <Grid RowDefinitions="Auto,*" Margin="16,12">
+        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,8">
+            <mi:MaterialIcon Grid.Column="0" Kind="PackageVariantClosed" Width="20" Height="20"
+                             VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="1" Text="Listed" FontSize="16" FontWeight="SemiBold"
+                       Margin="8,0,0,0" VerticalAlignment="Center"/>
+            <Button Grid.Column="2" Command="{Binding RefreshCommand}"
+                    ToolTip.Tip="Rescan the listed folder" Padding="4" Background="Transparent">
+                <mi:MaterialIcon Kind="Refresh" Width="16" Height="16"/>
+            </Button>
+        </Grid>
+
+        <DataGrid Grid.Row="1"
+                  ItemsSource="{Binding Listed}"
+                  SelectedItem="{Binding SelectedItem}"
+                  AutoGenerateColumns="False"
+                  IsReadOnly="True"
+                  CanUserResizeColumns="True"
+                  GridLinesVisibility="Horizontal"
+                  BorderThickness="1"
+                  BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}">
+            <DataGrid.Columns>
+                <DataGridTemplateColumn Header="" Width="56">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate x:DataType="vm:DraftListItemViewModel">
+                            <Border Width="40" Height="40" CornerRadius="3" Margin="6,4"
+                                    ClipToBounds="True" Background="#22000000">
+                                <Image Source="{Binding CoverThumbnail}" Stretch="UniformToFill"/>
+                            </Border>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="Title" Binding="{Binding DisplayTitle}" Width="*"/>
+                <DataGridTextColumn Header="Photos" Binding="{Binding PhotoCount}" Width="80"/>
+                <DataGridTextColumn Header="Status" Binding="{Binding StatusDisplay}" Width="90"/>
+                <DataGridTemplateColumn Header="Actions" Width="220">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate x:DataType="vm:DraftListItemViewModel">
+                            <StackPanel Orientation="Horizontal" Spacing="6" Margin="6,4">
+                                <Button Padding="6,3"
+                                        Command="{Binding $parent[DataGrid].((vm:ListedViewModel)DataContext).MarkSoldCommand}"
+                                        CommandParameter="{Binding}">
+                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                        <mi:MaterialIcon Kind="CashCheck" Width="14" Height="14"/>
+                                        <TextBlock Text="Mark Sold" FontSize="12"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Padding="6,3"
+                                        Command="{Binding $parent[DataGrid].((vm:ListedViewModel)DataContext).RelistCommand}"
+                                        CommandParameter="{Binding}">
+                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                        <mi:MaterialIcon Kind="Restore" Width="14" Height="14"/>
+                                        <TextBlock Text="Relist" FontSize="12"/>
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <TextBlock Grid.Row="1" Text="Nothing listed yet. Open a draft and choose “Mark as Listed”."
+                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                   Opacity="0.5" FontSize="12"
+                   IsVisible="{Binding !Listed.Count}"/>
+    </Grid>
+</UserControl>

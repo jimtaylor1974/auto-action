@@ -11,169 +11,64 @@
         Width="1200" Height="800"
         MinWidth="950" MinHeight="600">
 
-    <Grid RowDefinitions="*,Auto">
-        <Grid Grid.Row="0" ColumnDefinitions="1.3*,Auto,1*,Auto,2.6*">
+    <Grid RowDefinitions="Auto,*,Auto">
 
-            <!-- ===== Pane 1: Inbox gallery ===== -->
-            <Border Grid.Column="0"
-                    x:Name="InboxPanel"
-                    MinWidth="220"
-                    DragDrop.AllowDrop="True"
-                    Background="{DynamicResource SystemControlBackgroundAltMediumHighBrush}"
+        <!-- Top menu -->
+        <Menu Grid.Row="0" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}">
+            <MenuItem Header="_File">
+                <MenuItem Header="E_xit" Command="{Binding ExitCommand}"/>
+            </MenuItem>
+            <MenuItem Header="_View">
+                <MenuItem Header="_Home" Command="{Binding NavigateToHomeCommand}"/>
+                <MenuItem Header="_Listed" Command="{Binding NavigateToListedCommand}"/>
+                <MenuItem Header="_Settings" Command="{Binding NavigateToSettingsCommand}"/>
+            </MenuItem>
+        </Menu>
+
+        <!-- Body: left nav rail + content -->
+        <Grid Grid.Row="1" ColumnDefinitions="90,*">
+            <Border Grid.Column="0" Background="{DynamicResource SystemControlBackgroundAltMediumHighBrush}"
                     BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
                     BorderThickness="0,0,1,0">
-                <Grid RowDefinitions="Auto,*,Auto">
-
-                    <!-- Inbox header -->
-                    <StackPanel Grid.Row="0" Margin="12,12,12,4" Spacing="6">
-                        <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
-                            <mi:MaterialIcon Grid.Column="0" Kind="Inbox" Width="20" Height="20"
-                                             VerticalAlignment="Center"/>
-                            <TextBlock Grid.Column="1" Text="Inbox" FontSize="16" FontWeight="SemiBold"
-                                       Margin="8,0,0,0" VerticalAlignment="Center"/>
-                            <Button Grid.Column="2" Click="OnAddPhotosClick"
-                                    ToolTip.Tip="Add photos from your computer"
-                                    Padding="6,4" VerticalAlignment="Center">
-                                <StackPanel Orientation="Horizontal" Spacing="4">
-                                    <mi:MaterialIcon Kind="ImagePlus" Width="16" Height="16"/>
-                                    <TextBlock Text="Add" FontSize="12"/>
-                                </StackPanel>
-                            </Button>
-                            <Button Grid.Column="3" Command="{Binding OpenInboxFolderCommand}"
-                                    ToolTip.Tip="Open the inbox folder in your file manager"
-                                    Padding="4" Background="Transparent" Margin="4,0,0,0"
-                                    VerticalAlignment="Center">
-                                <mi:MaterialIcon Kind="FolderOpen" Width="16" Height="16"/>
-                            </Button>
-                            <Button Grid.Column="4" Command="{Binding RefreshInboxCommand}"
-                                    ToolTip.Tip="Rescan the inbox folder"
-                                    Padding="4" Background="Transparent" Margin="4,0,0,0"
-                                    VerticalAlignment="Center">
-                                <mi:MaterialIcon Kind="Refresh" Width="16" Height="16"/>
-                            </Button>
-                        </Grid>
-                        <TextBlock Text="Drag photos here or click Add, then tick the ones to turn into a draft."
-                                   FontSize="11" TextWrapping="Wrap" Opacity="0.7"/>
-                    </StackPanel>
-
-                    <!-- Inbox thumbnails -->
-                    <ScrollViewer Grid.Row="1" Padding="12,4">
-                        <ItemsControl ItemsSource="{Binding InboxImages}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <WrapPanel Orientation="Horizontal"/>
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="vm:InboxImageViewModel">
-                                    <Border Margin="4" Padding="2" CornerRadius="4"
-                                            BorderThickness="3" BorderBrush="Transparent"
-                                            Classes.thumbSelected="{Binding IsSelected}">
-                                        <StackPanel Width="92">
-                                            <Border CornerRadius="3" ClipToBounds="True"
-                                                    Height="92" Background="#22000000">
-                                                <Image Source="{Binding Thumbnail}"
-                                                       Stretch="UniformToFill"/>
-                                            </Border>
-                                            <CheckBox Content="{Binding FileName}"
-                                                      IsChecked="{Binding IsSelected}"
-                                                      FontSize="10" Margin="0,2,0,0"
-                                                      MaxWidth="92"/>
-                                        </StackPanel>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </ScrollViewer>
-
-                    <!-- Empty inbox hint -->
-                    <TextBlock Grid.Row="1" Text="No photos in the inbox yet."
-                               HorizontalAlignment="Center" VerticalAlignment="Center"
-                               Opacity="0.5" FontSize="12"
-                               IsVisible="{Binding !InboxImages.Count}"/>
-
-                    <!-- Create Draft button -->
-                    <Button Grid.Row="2" Margin="12,4,12,12"
-                            HorizontalAlignment="Stretch"
-                            HorizontalContentAlignment="Center"
-                            Command="{Binding CreateDraftCommand}"
-                            Classes="accent">
-                        <StackPanel Orientation="Horizontal" Spacing="6">
-                            <mi:MaterialIcon Kind="PlusBox" Width="18" Height="18"/>
-                            <TextBlock Text="Create Draft from selected"/>
+                <StackPanel Margin="0,16,0,0" Spacing="2">
+                    <Button Command="{Binding NavigateToHomeCommand}"
+                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                            Padding="8,10" Background="Transparent"
+                            Classes.selected="{Binding IsHomeSelected}">
+                        <StackPanel Spacing="4" HorizontalAlignment="Center">
+                            <mi:MaterialIcon Kind="Home" Width="24" Height="24"/>
+                            <TextBlock Text="Home" FontSize="11" HorizontalAlignment="Center"/>
                         </StackPanel>
                     </Button>
-                </Grid>
+
+                    <Button Command="{Binding NavigateToListedCommand}"
+                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                            Padding="8,10" Background="Transparent"
+                            Classes.selected="{Binding IsListedSelected}">
+                        <StackPanel Spacing="4" HorizontalAlignment="Center">
+                            <mi:MaterialIcon Kind="PackageVariantClosed" Width="24" Height="24"/>
+                            <TextBlock Text="Listed" FontSize="11" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Button Command="{Binding NavigateToSettingsCommand}"
+                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                            Padding="8,10" Background="Transparent"
+                            Classes.selected="{Binding IsSettingsSelected}">
+                        <StackPanel Spacing="4" HorizontalAlignment="Center">
+                            <mi:MaterialIcon Kind="Cog" Width="24" Height="24"/>
+                            <TextBlock Text="Settings" FontSize="11" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
             </Border>
 
-            <!-- Splitter: Inbox | Drafts -->
-            <GridSplitter Grid.Column="1" Width="4"
-                          ResizeDirection="Columns"
-                          Background="Transparent"
-                          HorizontalAlignment="Stretch"/>
-
-            <!-- ===== Pane 2: Drafts list ===== -->
-            <Border Grid.Column="2"
-                    MinWidth="180"
-                    Background="{DynamicResource SystemControlBackgroundAltMediumHighBrush}"
-                    BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
-                    BorderThickness="0,0,1,0">
-                <Grid RowDefinitions="Auto,*">
-
-                    <!-- Drafts header -->
-                    <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8"
-                                Margin="12,12,12,4">
-                        <mi:MaterialIcon Kind="FileDocumentEdit" Width="20" Height="20"/>
-                        <TextBlock Text="Drafts" FontSize="16" FontWeight="SemiBold"
-                                   VerticalAlignment="Center"/>
-                    </StackPanel>
-
-                    <!-- Drafts list -->
-                    <ListBox Grid.Row="1" Margin="6,4,6,8"
-                             Background="Transparent"
-                             ItemsSource="{Binding Drafts}"
-                             SelectedItem="{Binding SelectedDraft}">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate x:DataType="vm:DraftListItemViewModel">
-                                <Grid ColumnDefinitions="Auto,*" Height="48">
-                                    <Border Grid.Column="0" Width="44" Height="44"
-                                            CornerRadius="3" ClipToBounds="True"
-                                            Background="#22000000" Margin="0,0,8,0">
-                                        <Image Source="{Binding CoverThumbnail}"
-                                               Stretch="UniformToFill"/>
-                                    </Border>
-                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding DisplayTitle}"
-                                                   FontWeight="SemiBold"
-                                                   TextTrimming="CharacterEllipsis"/>
-                                        <TextBlock Text="{Binding Summary}"
-                                                   FontSize="11" Opacity="0.6"/>
-                                    </StackPanel>
-                                </Grid>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-                </Grid>
-            </Border>
-
-            <!-- Splitter: Drafts | Editor -->
-            <GridSplitter Grid.Column="3" Width="4"
-                          ResizeDirection="Columns"
-                          Background="Transparent"
-                          HorizontalAlignment="Stretch"/>
-
-            <!-- ===== Pane 3: Draft editor ===== -->
-            <Panel Grid.Column="4" MinWidth="320">
-                <ContentControl Content="{Binding CurrentDraft}"/>
-                <TextBlock IsVisible="{Binding CurrentDraft, Converter={x:Static ObjectConverters.IsNull}}"
-                           Text="Select a draft to edit, or create one from the inbox."
-                           HorizontalAlignment="Center" VerticalAlignment="Center"
-                           Opacity="0.5" FontSize="14"/>
-            </Panel>
+            <!-- Active page -->
+            <ContentControl Grid.Column="1" Content="{Binding CurrentPage}"/>
         </Grid>
 
         <!-- Status bar -->
-        <Border Grid.Row="1"
+        <Border Grid.Row="2"
                 Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
                 Padding="16,6">
             <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center" FontSize="12"/>

@@ -3,20 +3,36 @@
 ## 🌟 Project Overview
 We are building a local-first, cross-platform utility using **C# (Avalonia UI)** and a **Chrome Extension**. The goal is to eliminate "listing fatigue" for TradeMe sellers by creating an extremely fast, AI-assisted workflow for generating item listings, and a seamless browser bridge to publish them.
 
-### 🚫 The Architecture: The Local Companion Bridge
-Due to TradeMe's 2026 restrictions on live API access for casual sellers, and the aggressive Cloudflare anti-bot protections against headless browser automation (Playwright/Selenium), we are using a two-part companion architecture:
-1.  **The Desktop App (Avalonia):** Handles local files, offline JSON storage, and AI processing. It also runs a tiny, invisible background HTTP server on localhost.
-2.  **The Chrome Extension:** Runs in your normal, authenticated browser. It fetches the active listing data from the local C# server and uses vanilla JavaScript DOM manipulation to instantly fill out the TradeMe web forms. 
+### 🚫 The Architecture: The Local Companion Bridge (no TradeMe API)
+We are **not** using the TradeMe selling API. Due to TradeMe's 2026 restrictions on live API
+access for casual sellers, and the aggressive Cloudflare anti-bot protections against headless
+browser automation (Playwright/Selenium), publishing happens **entirely through a Chrome
+extension bridge** driving the real, authenticated browser session:
+1.  **The Desktop App (Avalonia):** Handles local files, offline JSON storage, and AI processing. It runs a tiny background HTTP server on localhost that exposes the active draft.
+2.  **The Chrome Extension:** Runs in your normal, authenticated browser. It fetches the active listing data from the local C# server and uses vanilla JavaScript DOM manipulation to instantly fill out the TradeMe web forms.
 
 ### Core Architecture & Philosophy
-*   **File System as Database:** We will not use SQLite. The local folder structure (`1_Inbox` -> `2_Drafts` -> `3_Listed`) dictates state. Data for each listing is saved in a local `listing.json` file inside its respective folder.
+*   **File System as Database:** We will not use SQLite. The local folder structure (`1_Inbox` -> `2_Drafts` -> `3_Listed`) dictates state. Data for each listing is saved in a local `listing.json` file inside its respective folder. A `ListingStatus` (Draft → Listed → Sold) on the model tracks lifecycle within `3_Listed`, with **Relist** moving an item back to `2_Drafts`.
 *   **Human-in-the-Loop:** The AI analyzes photos and drafts the listing, but the user always reviews it in the desktop app before clicking "Fill" in the browser.
 *   **Preference Memory:** A lightweight `preferences.json` file remembers user habits (e.g., "Always charge $8 shipping for shoes").
 
+### 🧱 Adopted Tech Stack (aligned with the pii-scanner companion app)
+*   **MVVM:** **ReactiveUI** (`ReactiveObject` / `RaiseAndSetIfChanged` / `ReactiveCommand`). CommunityToolkit.Mvvm has been fully removed so both solutions share one paradigm.
+*   **Navigation shell:** top menu + 90px left icon rail (`Material.Icons.Avalonia`) + a `ContentControl` whose page is swapped by `MainWindowViewModel` via the convention `ViewLocator`. Pages: **Home**, **Listed**, **Settings** (more to come).
+*   **Tables:** `Avalonia.Controls.DataGrid` for the Drafts and Listed lists.
+*   **Settings:** stored as `settings.json` in the app root folder (`Documents/AutoAuction`) via `ISettingsService` — server port, AI providers + keys (plaintext), active provider/model.
+*   **AI:** provider-agnostic via **LlmTornado** (`AiClientFactory` builds a `TornadoApi` from the configured keys). Listing-from-photos generation lands in Phase 3; key entry + connection test exist now.
+
+### 🧭 Current UI Layout
+*   **Home:** Inbox gallery (drag/drop + Add, multi-select) on the left; **Drafts DataGrid** on the right. Double-click a draft → full-page **Draft Detail** editor (auto-save, Discard, Open folder, **Mark as Listed**).
+*   **Listed:** DataGrid of `3_Listed` items with **Mark Sold** and **Relist** per row.
+*   **Settings:** bridge server (port / URL / find-free-port / start-stop / auto-start), AI providers, app-folder access.
+
 ---
 
-## 🏗️ Phase 1: Foundation (The Local Manual Editor)
+## 🏗️ Phase 1: Foundation (The Local Manual Editor) — ✅ Done
 **Objective:** Build the core Avalonia desktop app, establish the folder-based data architecture, and create a manual UI for editing listings. *No external APIs, browser extensions, or AI yet.*
+*Status: complete, and since extended with the ReactiveUI navigation shell, Settings, and the Listed lifecycle described above.*
 
 **Step 1: Project Setup & Architecture**
 *   Initialize a C# Solution (`AutoAuction.sln`) with MVVM architecture (`CommunityToolkit.Mvvm`).
@@ -48,14 +64,14 @@ Due to TradeMe's 2026 restrictions on live API access for casual sellers, and th
 ## 🔌 Phase 2: The Browser Bridge (Chrome Extension)
 **Objective:** Implement a local HTTP server in the Avalonia app and build a Chrome Extension to safely automate data entry in the browser based on the active local draft.
 
-**Step 1: The Local Server (C# Desktop)**
-*   In `AutoAuction.Core`, implement a lightweight HTTP server (using `System.Net.HttpListener` or Minimal APIs).
-*   Run it on `http://localhost:5999` while the app is open.
-*   Endpoint 1: `GET /api/drafts/active` returns the `listing.json` of the currently focused draft in the Avalonia UI.
-*   Endpoint 2: `GET /api/drafts/active/images` returns the image files from that draft's folder (as base64 or binary).
-*   Ensure CORS headers allow requests from `https://www.trademe.co.nz`.
+**Step 1: The Local Server (C# Desktop) — ✅ Done (brought forward)**
+*   `AutoAuction.Core/Services/LocalBridgeServer` implements a lightweight `System.Net.HttpListener` server.
+*   Runs on `http://localhost:{ServerPort}` (default `5999`, configurable in Settings; auto-starts with the app and is started/stopped from Settings).
+*   Endpoint 1: `GET /api/drafts/active` returns the `listing.json` of the draft currently open in the editor (via `IActiveListingProvider`, read fresh from disk so it reflects the latest auto-save). 404 when no draft is active.
+*   Endpoint 2: `GET /api/drafts/active/images` returns the active draft's images as base64 (`{fileName, contentType, base64}`).
+*   CORS headers allow requests from `https://www.trademe.co.nz` (incl. `OPTIONS` preflight).
 
-**Step 2: Chrome Extension Setup**
+**Step 2: Chrome Extension Setup — ⏳ Next (front-end not yet built)**
 *   Create a Manifest V3 extension.
 *   Grant host permissions for `http://localhost:5999/*` and `https://www.trademe.co.nz/*`.
 *   Inject a floating button onto TradeMe "Sell" pages: *"⚡ Fill from AutoAuction"*.
@@ -76,7 +92,7 @@ Due to TradeMe's 2026 restrictions on live API access for casual sellers, and th
 **Objective:** Replace manual typing in Phase 1 with AI Vision and generate listing details automatically from the photos.
 
 **Step 1: AI Vision Integration**
-*   Add an AI client (e.g., OpenAI GPT-4o or Anthropic Claude 3.5 Sonnet).
+*   AI client already exists: `AiClientFactory` (LlmTornado, provider-agnostic) with keys/active provider configured in Settings. This step wires it into draft generation.
 *   Update the "Create Draft" button logic:
     *   Resize/compress images in memory, convert to Base64.
     *   Send to the AI with a strict JSON schema prompt: *"You are a TradeMe seller. Output a JSON object matching this schema with Title, Description, Condition, and Price..."*

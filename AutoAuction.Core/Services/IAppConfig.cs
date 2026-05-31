@@ -19,6 +19,9 @@ public interface IAppConfig
     /// <summary>"3_Listed" - listings that have been published.</summary>
     string ListedPath { get; }
 
+    /// <summary>Full path to "settings.json" in the root data folder (general app settings).</summary>
+    string SettingsPath { get; }
+
     /// <summary>Creates the root and all sub-folders if they do not already exist.</summary>
     void Initialize();
 }

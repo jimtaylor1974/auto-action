@@ -1,170 +1,118 @@
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.ComponentModel;
-using System.IO;
-using System.Linq;
+using System;
+using System.Reactive;
 using AutoAuction.Core.Services;
-using AutoAuction.Desktop.Services;
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
+using ReactiveUI;
 
 namespace AutoAuction.Desktop.ViewModels;
 
-/// <summary>
-/// Root view model. Owns the Inbox gallery and the Drafts list on the left, and the
-/// currently open <see cref="DraftEditorViewModel"/> on the right.
-/// </summary>
-public partial class MainWindowViewModel : ViewModelBase
+public enum AppPage
 {
-    private readonly IAppConfig _config;
+    Home,
+    DraftDetail,
+    Listed,
+    Settings
+}
+
+/// <summary>
+/// Shell coordinator. Owns the navigation rail/top menu, swaps the active page into
+/// <see cref="CurrentPage"/>, and builds page view models (passing itself for navigation).
+/// </summary>
+public class MainWindowViewModel : ViewModelBase
+{
     private readonly IDraftService _draftService;
+    private readonly IAppConfig _config;
+    private readonly ISettingsService _settings;
+    private readonly IActiveListingProvider _activeListing;
+    private readonly LocalBridgeServer _server;
+    private readonly AiClientFactory _aiFactory;
 
-    public ObservableCollection<InboxImageViewModel> InboxImages { get; } = new();
-    public ObservableCollection<DraftListItemViewModel> Drafts { get; } = new();
+    private AppPage _currentPageEnum = AppPage.Home;
 
-    /// <summary>The draft currently open in the editor panel (null shows a placeholder).</summary>
-    [ObservableProperty]
-    private DraftEditorViewModel? _currentDraft;
-
-    /// <summary>The selected row in the Drafts list. Setting it opens that draft.</summary>
-    [ObservableProperty]
-    private DraftListItemViewModel? _selectedDraft;
-
-    [ObservableProperty]
-    private string _statusMessage = "Ready";
-
-    public MainWindowViewModel(IAppConfig config, IDraftService draftService)
+    public MainWindowViewModel(
+        IDraftService draftService,
+        IAppConfig config,
+        ISettingsService settings,
+        IActiveListingProvider activeListing,
+        LocalBridgeServer server,
+        AiClientFactory aiFactory)
     {
-        _config = config;
         _draftService = draftService;
+        _config = config;
+        _settings = settings;
+        _activeListing = activeListing;
+        _server = server;
+        _aiFactory = aiFactory;
 
-        RefreshInbox();
-        RefreshDrafts();
+        NavigateToHomeCommand = ReactiveCommand.Create(NavigateToHome);
+        NavigateToListedCommand = ReactiveCommand.Create(NavigateToListed);
+        NavigateToSettingsCommand = ReactiveCommand.Create(NavigateToSettings);
+        ExitCommand = ReactiveCommand.Create(Exit);
     }
 
-    /// <summary>True when at least one inbox image is ticked.</summary>
-    public bool HasSelection => InboxImages.Any(i => i.IsSelected);
-
-    /// <summary>The folder photos should be dropped into. Shown in the UI as a hint.</summary>
-    public string InboxPath => _config.InboxPath;
-
-    partial void OnSelectedDraftChanged(DraftListItemViewModel? value)
+    private ViewModelBase? _currentPage;
+    public ViewModelBase? CurrentPage
     {
-        // Detach the previous editor so its discard event doesn't keep this VM alive.
-        if (CurrentDraft is not null)
-            CurrentDraft.Discarded -= OnDraftDiscarded;
-
-        if (value is null)
-        {
-            CurrentDraft = null;
-            return;
-        }
-
-        var editor = new DraftEditorViewModel(_draftService, value.Draft);
-        editor.Discarded += OnDraftDiscarded;
-        CurrentDraft = editor;
-        StatusMessage = $"Editing: {value.DisplayTitle}";
+        get => _currentPage;
+        set => this.RaiseAndSetIfChanged(ref _currentPage, value);
     }
 
-    private void OnDraftDiscarded(int movedCount)
+    private string _statusMessage = "Ready";
+    public string StatusMessage
     {
-        // Clearing the selection closes the editor (and detaches the event above).
-        SelectedDraft = null;
-        RefreshInbox();
-        RefreshDrafts();
-        StatusMessage = movedCount > 0
-            ? $"Draft discarded; {movedCount} photo(s) returned to inbox"
-            : "Draft discarded";
+        get => _statusMessage;
+        set => this.RaiseAndSetIfChanged(ref _statusMessage, value);
     }
 
-    /// <summary>
-    /// Imports external image files (from drag-and-drop or the file picker) into the inbox
-    /// and refreshes the gallery.
-    /// </summary>
-    public void ImportPhotos(IEnumerable<string> paths)
+    public ReactiveCommand<Unit, Unit> NavigateToHomeCommand { get; }
+    public ReactiveCommand<Unit, Unit> NavigateToListedCommand { get; }
+    public ReactiveCommand<Unit, Unit> NavigateToSettingsCommand { get; }
+    public ReactiveCommand<Unit, Unit> ExitCommand { get; }
+
+    // Selection state for the navigation rail highlight.
+    public bool IsHomeSelected => _currentPageEnum == AppPage.Home;
+    public bool IsListedSelected => _currentPageEnum == AppPage.Listed;
+    public bool IsSettingsSelected => _currentPageEnum == AppPage.Settings;
+
+    /// <summary>Called once the window is shown to display the first page.</summary>
+    public void Initialize() => NavigateToHome();
+
+    private void SetPage(AppPage page)
     {
-        var count = _draftService.ImportToInbox(paths);
-        RefreshInbox();
-        StatusMessage = count > 0
-            ? $"Imported {count} photo(s) into the inbox"
-            : "No image files were imported";
+        _currentPageEnum = page;
+        this.RaisePropertyChanged(nameof(IsHomeSelected));
+        this.RaisePropertyChanged(nameof(IsListedSelected));
+        this.RaisePropertyChanged(nameof(IsSettingsSelected));
     }
 
-    /// <summary>Opens the inbox folder in the OS file manager (creating it if needed).</summary>
-    [RelayCommand]
-    private void OpenInboxFolder()
+    public void NavigateToHome()
     {
-        Directory.CreateDirectory(_config.InboxPath);
-        SystemFolder.Open(_config.InboxPath);
+        _activeListing.ActiveFolderPath = null;
+        SetPage(AppPage.Home);
+        CurrentPage = new HomeViewModel(this, _draftService, _config);
+        StatusMessage = "Home";
     }
 
-    [RelayCommand]
-    private void RefreshInbox()
+    public void NavigateToDraft(DraftFolder draft)
     {
-        foreach (var image in InboxImages)
-            image.PropertyChanged -= OnInboxImageChanged;
-        InboxImages.Clear();
-
-        foreach (var path in _draftService.GetInboxImages())
-        {
-            var vm = new InboxImageViewModel(path);
-            vm.PropertyChanged += OnInboxImageChanged;
-            InboxImages.Add(vm);
-        }
-
-        CreateDraftCommand.NotifyCanExecuteChanged();
-        OnPropertyChanged(nameof(HasSelection));
-        UpdateInboxStatus();
+        SetPage(AppPage.DraftDetail);
+        CurrentPage = new DraftDetailViewModel(this, _draftService, _activeListing, draft);
+        StatusMessage = "Editing draft";
     }
 
-    [RelayCommand]
-    private void RefreshDrafts()
+    public void NavigateToListed()
     {
-        Drafts.Clear();
-        foreach (var draft in _draftService.GetDrafts())
-            Drafts.Add(new DraftListItemViewModel(draft));
+        _activeListing.ActiveFolderPath = null;
+        SetPage(AppPage.Listed);
+        CurrentPage = new ListedViewModel(this, _draftService);
+        StatusMessage = "Listed";
     }
 
-    [RelayCommand(CanExecute = nameof(HasSelection))]
-    private void CreateDraft()
+    public void NavigateToSettings()
     {
-        var selectedPaths = InboxImages
-            .Where(i => i.IsSelected)
-            .Select(i => i.FullPath)
-            .ToList();
-
-        if (selectedPaths.Count == 0)
-            return;
-
-        var draft = _draftService.CreateDraft(selectedPaths);
-
-        // The images were moved out of the Inbox; refresh both lists to reflect new state.
-        RefreshInbox();
-        RefreshDrafts();
-
-        // Open the freshly created draft in the editor.
-        var newItem = Drafts.FirstOrDefault(d => d.Draft.FolderPath == draft.FolderPath);
-        if (newItem is not null)
-            SelectedDraft = newItem;
-
-        StatusMessage = $"Created draft from {selectedPaths.Count} photo(s)";
+        SetPage(AppPage.Settings);
+        CurrentPage = new SettingsViewModel(_settings, _aiFactory, _server, _config);
+        StatusMessage = "Settings";
     }
 
-    private void OnInboxImageChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName == nameof(InboxImageViewModel.IsSelected))
-        {
-            CreateDraftCommand.NotifyCanExecuteChanged();
-            OnPropertyChanged(nameof(HasSelection));
-            UpdateInboxStatus();
-        }
-    }
-
-    private void UpdateInboxStatus()
-    {
-        var selected = InboxImages.Count(i => i.IsSelected);
-        StatusMessage = selected > 0
-            ? $"{selected} of {InboxImages.Count} photo(s) selected"
-            : $"{InboxImages.Count} photo(s) in inbox";
-    }
+    private static void Exit() => Environment.Exit(0);
 }

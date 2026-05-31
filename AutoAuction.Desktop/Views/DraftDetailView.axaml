@@ -1,0 +1,228 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:AutoAuction.Desktop.ViewModels"
+             xmlns:models="using:AutoAuction.Core.Models"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:mi="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+             mc:Ignorable="d" d:DesignWidth="700" d:DesignHeight="800"
+             x:Class="AutoAuction.Desktop.Views.DraftDetailView"
+             x:DataType="vm:DraftDetailViewModel">
+
+    <UserControl.Styles>
+        <Style Selector="TextBlock.section">
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Margin" Value="0,16,0,8"/>
+        </Style>
+        <Style Selector="TextBlock.label">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Opacity" Value="0.8"/>
+            <Setter Property="Margin" Value="0,6,0,2"/>
+        </Style>
+    </UserControl.Styles>
+
+    <Grid RowDefinitions="Auto,*">
+
+        <!-- ===== Header / actions bar (always visible) ===== -->
+        <Border Grid.Row="0" Padding="16,10"
+                BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
+                <Button Grid.Column="0" Command="{Binding BackCommand}"
+                        ToolTip.Tip="Back to Home" Padding="6,4">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <mi:MaterialIcon Kind="ArrowLeft" Width="18" Height="18"/>
+                        <TextBlock Text="Back" FontSize="12"/>
+                    </StackPanel>
+                </Button>
+
+                <TextBlock Grid.Column="1" Text="{Binding Title}" FontSize="15" FontWeight="SemiBold"
+                           VerticalAlignment="Center" Margin="12,0"
+                           TextTrimming="CharacterEllipsis"/>
+
+                <Button Grid.Column="2" Command="{Binding MarkListedCommand}" Classes="accent"
+                        Margin="0,0,8,0" ToolTip.Tip="Move this draft into Listed" Padding="8,4">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <mi:MaterialIcon Kind="PackageVariantClosedCheck" Width="16" Height="16"/>
+                        <TextBlock Text="Mark as Listed" FontSize="12"/>
+                    </StackPanel>
+                </Button>
+
+                <Button Grid.Column="3" Margin="0,0,8,0"
+                        ToolTip.Tip="Move this draft's photos back to the inbox and delete the draft"
+                        Padding="6,4">
+                    <Button.Flyout>
+                        <Flyout>
+                            <StackPanel Spacing="10" MaxWidth="260">
+                                <TextBlock TextWrapping="Wrap"
+                                           Text="Discard this draft? Its photos will be moved back to the inbox and the draft details will be permanently deleted."/>
+                                <Button Command="{Binding DiscardCommand}"
+                                        HorizontalAlignment="Right" Classes="accent">
+                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                        <mi:MaterialIcon Kind="DeleteOutline" Width="16" Height="16"/>
+                                        <TextBlock Text="Discard draft"/>
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </Flyout>
+                    </Button.Flyout>
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <mi:MaterialIcon Kind="DeleteOutline" Width="16" Height="16"/>
+                        <TextBlock Text="Discard" FontSize="12"/>
+                    </StackPanel>
+                </Button>
+
+                <Button Grid.Column="4" Command="{Binding OpenFolderCommand}"
+                        ToolTip.Tip="Open this draft's folder in your file manager" Padding="6,4">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <mi:MaterialIcon Kind="FolderOpen" Width="16" Height="16"/>
+                        <TextBlock Text="Open folder" FontSize="12"/>
+                    </StackPanel>
+                </Button>
+            </Grid>
+        </Border>
+
+        <!-- ===== Editor form ===== -->
+        <ScrollViewer Grid.Row="1" Padding="24,16">
+            <!-- Bottom margin keeps the last control clear of the window edge so the scroll
+                 extent reaches it. -->
+            <StackPanel MaxWidth="640" HorizontalAlignment="Left" Spacing="2"
+                        Margin="0,0,0,48">
+
+                <!-- Attached images -->
+                <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Disabled">
+                    <ItemsControl ItemsSource="{Binding Images}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" Spacing="8"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:DraftImageViewModel">
+                                <Border Width="110" Height="110" CornerRadius="4"
+                                        ClipToBounds="True" Background="#22000000">
+                                    <Image Source="{Binding Thumbnail}" Stretch="UniformToFill"
+                                           ToolTip.Tip="{Binding FileName}"/>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+                <TextBlock Text="No images attached to this draft."
+                           Opacity="0.5" FontSize="12"
+                           IsVisible="{Binding !Images.Count}"/>
+
+                <!-- Save status -->
+                <TextBlock Text="{Binding SaveStatus}" FontSize="11" Opacity="0.6" Margin="0,8,0,0"/>
+
+                <!-- ===== Core Details ===== -->
+                <TextBlock Text="Core Details" Classes="section"/>
+
+                <TextBlock Text="Title (required, max 50)" Classes="label"/>
+                <TextBox Text="{Binding Listing.Title}" MaxLength="50"
+                         Watermark="e.g. Nike Air Max 90 - Mens Size 10"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="0">
+                    <TextBlock Text="{Binding Listing.Title.Length}" FontSize="11" Opacity="0.6"/>
+                    <TextBlock Text="/50" FontSize="11" Opacity="0.6"/>
+                </StackPanel>
+
+                <TextBlock Text="Subtitle (optional, max 50)" Classes="label"/>
+                <TextBox Text="{Binding Listing.Subtitle}" MaxLength="50"/>
+
+                <TextBlock Text="Category ID (required)" Classes="label"/>
+                <TextBox Text="{Binding Listing.CategoryId}"
+                         Watermark="e.g. 0153-0447-0818-"/>
+
+                <TextBlock Text="Condition (required)" Classes="label"/>
+                <ComboBox ItemsSource="{Binding ConditionOptions}"
+                          SelectedItem="{Binding Listing.Condition}"
+                          HorizontalAlignment="Left" MinWidth="160"/>
+
+                <TextBlock Text="Description (required)" Classes="label"/>
+                <TextBox Text="{Binding Listing.Description}"
+                         AcceptsReturn="True" TextWrapping="Wrap"
+                         MinHeight="120" Watermark="Describe the item. One paragraph per line."/>
+
+                <!-- ===== Pricing ===== -->
+                <TextBlock Text="Pricing" Classes="section"/>
+
+                <CheckBox Content="Buy Now only (not an auction)"
+                          IsChecked="{Binding Listing.IsBuyNowOnly}"/>
+
+                <Grid ColumnDefinitions="*,*,*" Margin="0,4,0,0">
+                    <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                        <TextBlock Text="Start price" Classes="label"/>
+                        <NumericUpDown Value="{Binding Listing.StartPrice}"
+                                       Minimum="0" Increment="1" FormatString="0.00"
+                                       IsEnabled="{Binding !Listing.IsBuyNowOnly}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Margin="0,0,8,0">
+                        <TextBlock Text="Reserve price" Classes="label"/>
+                        <NumericUpDown Value="{Binding Listing.ReservePrice}"
+                                       Minimum="0" Increment="1" FormatString="0.00"
+                                       IsEnabled="{Binding !Listing.IsBuyNowOnly}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="Buy Now price" Classes="label"/>
+                        <NumericUpDown Value="{Binding Listing.BuyNowPrice}"
+                                       Minimum="0" Increment="1" FormatString="0.00"/>
+                    </StackPanel>
+                </Grid>
+
+                <TextBlock Text="Duration (days)" Classes="label"/>
+                <ComboBox ItemsSource="{Binding DurationOptions}"
+                          SelectedItem="{Binding Listing.DurationDays}"
+                          HorizontalAlignment="Left" MinWidth="120"/>
+
+                <!-- ===== Shipping ===== -->
+                <TextBlock Text="Shipping &amp; Logistics" Classes="section"/>
+
+                <TextBlock Text="Pickup (required)" Classes="label"/>
+                <ComboBox ItemsSource="{Binding PickupOptions}"
+                          SelectedItem="{Binding Listing.PickupOption}"
+                          HorizontalAlignment="Left" MinWidth="160"/>
+
+                <CheckBox Content="Free shipping" Margin="0,8,0,0"
+                          IsChecked="{Binding Listing.IsFreeShipping}"/>
+
+                <StackPanel IsEnabled="{Binding !Listing.IsFreeShipping}" Spacing="6"
+                            Margin="0,4,0,0">
+                    <TextBlock Text="Custom shipping options" Classes="label"/>
+                    <TextBlock Text="No options yet — click &quot;Add shipping option&quot; below to add a courier and price."
+                               FontSize="11" Opacity="0.6" TextWrapping="Wrap"
+                               IsVisible="{Binding !Listing.ShippingOptions.Count}"/>
+                    <ItemsControl ItemsSource="{Binding Listing.ShippingOptions}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="models:ShippingOption">
+                                <Grid ColumnDefinitions="*,120,Auto" Margin="0,0,0,6">
+                                    <TextBox Grid.Column="0" Text="{Binding Method}"
+                                             Watermark="Method e.g. CourierPost Nationwide"
+                                             Margin="0,0,8,0"/>
+                                    <NumericUpDown Grid.Column="1" Value="{Binding Price}"
+                                                   Minimum="0" Increment="0.5" FormatString="0.00"/>
+                                    <Button Grid.Column="2" Margin="8,0,0,0"
+                                            Background="Transparent"
+                                            ToolTip.Tip="Remove this option"
+                                            Command="{Binding $parent[ItemsControl].((vm:DraftDetailViewModel)DataContext).RemoveShippingOptionCommand}"
+                                            CommandParameter="{Binding}">
+                                        <mi:MaterialIcon Kind="Delete" Width="18" Height="18"/>
+                                    </Button>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <Button Command="{Binding AddShippingOptionCommand}"
+                            HorizontalAlignment="Left">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <mi:MaterialIcon Kind="Plus" Width="16" Height="16"/>
+                            <TextBlock Text="Add shipping option"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

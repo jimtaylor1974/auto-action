@@ -1,11 +1,11 @@
 using Avalonia.Media.Imaging;
 using AutoAuction.Desktop.Services;
-using CommunityToolkit.Mvvm.ComponentModel;
+using ReactiveUI;
 
 namespace AutoAuction.Desktop.ViewModels;
 
 /// <summary>A single selectable photo shown in the Inbox gallery.</summary>
-public partial class InboxImageViewModel : ViewModelBase
+public class InboxImageViewModel : ViewModelBase
 {
     /// <summary>Full path to the image file in the Inbox folder.</summary>
     public string FullPath { get; }
@@ -14,9 +14,13 @@ public partial class InboxImageViewModel : ViewModelBase
 
     public Bitmap? Thumbnail { get; }
 
-    /// <summary>Whether this image is ticked for inclusion in the next "Create Draft".</summary>
-    [ObservableProperty]
     private bool _isSelected;
+    /// <summary>Whether this image is ticked for inclusion in the next "Create Draft".</summary>
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set => this.RaiseAndSetIfChanged(ref _isSelected, value);
+    }
 
     public InboxImageViewModel(string fullPath)
     {

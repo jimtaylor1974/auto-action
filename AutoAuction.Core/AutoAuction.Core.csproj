@@ -8,8 +8,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageReference Include="ReactiveUI" Version="20.1.1" />
     <PackageReference Include="Magick.NET-Q8-AnyCPU" Version="14.13.1" />
+    <PackageReference Include="LlmTornado" Version="3.8.56" />
   </ItemGroup>
 
 </Project>

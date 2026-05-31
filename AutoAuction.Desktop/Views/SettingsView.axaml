@@ -1,0 +1,169 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:AutoAuction.Desktop.ViewModels"
+             xmlns:models="using:AutoAuction.Core.Models"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:mi="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="800"
+             x:Class="AutoAuction.Desktop.Views.SettingsView"
+             x:DataType="vm:SettingsViewModel">
+
+    <UserControl.Styles>
+        <Style Selector="TextBlock.section">
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Margin" Value="0,16,0,8"/>
+        </Style>
+        <Style Selector="TextBlock.label">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Opacity" Value="0.8"/>
+            <Setter Property="Margin" Value="0,6,0,2"/>
+        </Style>
+        <Style Selector="Border.card">
+            <Setter Property="BorderBrush" Value="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="16"/>
+            <Setter Property="Margin" Value="0,0,0,12"/>
+        </Style>
+    </UserControl.Styles>
+
+    <ScrollViewer Padding="24,16">
+        <StackPanel MaxWidth="720" HorizontalAlignment="Left" Spacing="2" Margin="0,0,0,48">
+
+            <TextBlock Text="Settings" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,8"/>
+
+            <!-- ===== Local Bridge Server ===== -->
+            <TextBlock Text="Local Bridge Server" Classes="section"/>
+            <Border Classes="card">
+                <StackPanel Spacing="8">
+                    <TextBlock TextWrapping="Wrap" Opacity="0.75" FontSize="12"
+                               Text="The Chrome extension fetches the active draft from this local server while you're on a TradeMe sell page."/>
+                    <Grid ColumnDefinitions="Auto,Auto,Auto" VerticalAlignment="Center">
+                        <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                            <TextBlock Text="Port" Classes="label"/>
+                            <NumericUpDown Value="{Binding ServerPort}" Minimum="1024" Maximum="65535"
+                                           Increment="1" FormatString="0" MinWidth="140"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Margin="0,0,16,0" VerticalAlignment="Bottom">
+                            <TextBlock Text="URL" Classes="label"/>
+                            <SelectableTextBlock Text="{Binding ServerUrl}" VerticalAlignment="Center"
+                                                 Margin="0,0,0,8"/>
+                        </StackPanel>
+                        <Button Grid.Column="2" Content="Find free port"
+                                Command="{Binding FindFreePortCommand}" VerticalAlignment="Bottom"
+                                Margin="0,0,0,4"/>
+                    </Grid>
+                    <CheckBox Content="Start the server automatically when the app launches"
+                              IsChecked="{Binding ServerAutoStart}"/>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="Start" Command="{Binding StartServerCommand}"/>
+                        <Button Content="Stop" Command="{Binding StopServerCommand}"/>
+                        <TextBlock Text="{Binding ServerStatus}" VerticalAlignment="Center"
+                                   Opacity="0.8" FontSize="12"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- ===== AI Providers ===== -->
+            <TextBlock Text="AI Providers" Classes="section"/>
+            <Border Classes="card">
+                <StackPanel Spacing="8">
+                    <TextBlock TextWrapping="Wrap" Opacity="0.75" FontSize="12"
+                               Text="Add one or more providers (via LlmTornado). Keys are stored in plaintext in settings.json. The active provider/model is used for AI generation."/>
+
+                    <DataGrid ItemsSource="{Binding AiProviders}"
+                              SelectedItem="{Binding SelectedProvider}"
+                              AutoGenerateColumns="False"
+                              CanUserResizeColumns="True"
+                              GridLinesVisibility="Horizontal"
+                              MinHeight="120"
+                              BorderThickness="1"
+                              BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}">
+                        <DataGrid.Columns>
+                            <DataGridTemplateColumn Header="Provider" Width="180">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate x:DataType="models:AiProviderConfig">
+                                        <TextBlock Text="{Binding Provider}" VerticalAlignment="Center" Margin="8,0"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                                <DataGridTemplateColumn.CellEditingTemplate>
+                                    <DataTemplate x:DataType="models:AiProviderConfig">
+                                        <ComboBox ItemsSource="{Binding $parent[DataGrid].((vm:SettingsViewModel)DataContext).KnownProviders}"
+                                                  SelectedItem="{Binding Provider}" MinWidth="150"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellEditingTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="API Key" Binding="{Binding ApiKey}" Width="*"/>
+                            <DataGridTemplateColumn Header="" Width="160">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate x:DataType="models:AiProviderConfig">
+                                        <StackPanel Orientation="Horizontal" Spacing="6" Margin="6,4">
+                                            <Button Content="Test"
+                                                    Command="{Binding $parent[DataGrid].((vm:SettingsViewModel)DataContext).TestProviderCommand}"
+                                                    CommandParameter="{Binding}"/>
+                                            <Button ToolTip.Tip="Remove"
+                                                    Command="{Binding $parent[DataGrid].((vm:SettingsViewModel)DataContext).RemoveProviderCommand}"
+                                                    CommandParameter="{Binding}" Background="Transparent">
+                                                <mi:MaterialIcon Kind="Delete" Width="16" Height="16"/>
+                                            </Button>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <Button Command="{Binding AddProviderCommand}" HorizontalAlignment="Left">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <mi:MaterialIcon Kind="Plus" Width="16" Height="16"/>
+                            <TextBlock Text="Add provider"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Grid ColumnDefinitions="*,*" Margin="0,4,0,0">
+                        <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                            <TextBlock Text="Active provider" Classes="label"/>
+                            <ComboBox ItemsSource="{Binding KnownProviders}"
+                                      SelectedItem="{Binding ActiveProviderName}" MinWidth="160"
+                                      HorizontalAlignment="Stretch"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Text="Active model" Classes="label"/>
+                            <TextBox Text="{Binding ActiveModel}" Watermark="e.g. gpt-4o or claude-sonnet"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock Text="{Binding TestResult}" TextWrapping="Wrap" FontSize="12"
+                               Opacity="0.85" Margin="0,4,0,0"/>
+                </StackPanel>
+            </Border>
+
+            <!-- ===== General ===== -->
+            <TextBlock Text="General" Classes="section"/>
+            <Border Classes="card">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="App data folder" Classes="label"/>
+                    <Grid ColumnDefinitions="*,Auto">
+                        <SelectableTextBlock Grid.Column="0" Text="{Binding RootPath}"
+                                             VerticalAlignment="Center"/>
+                        <Button Grid.Column="1" Command="{Binding OpenRootFolderCommand}" Padding="6,4">
+                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                <mi:MaterialIcon Kind="FolderOpen" Width="16" Height="16"/>
+                                <TextBlock Text="Open" FontSize="12"/>
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- ===== Save ===== -->
+            <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,8,0,0">
+                <Button Content="Save settings" Command="{Binding SaveCommand}" Classes="accent"/>
+                <TextBlock Text="{Binding SaveStatus}" VerticalAlignment="Center" Opacity="0.75" FontSize="12"/>
+            </StackPanel>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

@@ -1,5 +1,6 @@
 using System;
 using Avalonia;
+using Avalonia.ReactiveUI;
 
 namespace AutoAuction.Desktop;
 
@@ -17,5 +18,6 @@ internal sealed class Program
         => AppBuilder.Configure<App>()
             .UsePlatformDetect()
             .WithInterFont()
-            .LogToTrace();
+            .LogToTrace()
+            .UseReactiveUI();
 }

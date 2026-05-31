@@ -20,13 +20,13 @@ extension bridge** driving the real, authenticated browser session:
 *   **MVVM:** **ReactiveUI** (`ReactiveObject` / `RaiseAndSetIfChanged` / `ReactiveCommand`). CommunityToolkit.Mvvm has been fully removed so both solutions share one paradigm.
 *   **Navigation shell:** top menu + 90px left icon rail (`Material.Icons.Avalonia`) + a `ContentControl` whose page is swapped by `MainWindowViewModel` via the convention `ViewLocator`. Pages: **Home**, **Listed**, **Settings** (more to come).
 *   **Tables:** `Avalonia.Controls.DataGrid` for the Drafts and Listed lists.
-*   **Settings:** stored as `settings.json` in the app root folder (`Documents/AutoAuction`) via `ISettingsService` — server port, AI providers + keys (plaintext), active provider/model.
-*   **AI:** provider-agnostic via **LlmTornado** (`AiClientFactory` builds a `TornadoApi` from the configured keys). Listing-from-photos generation lands in Phase 3; key entry + connection test exist now.
+*   **Settings:** stored as `settings.json` in the app root folder (`Documents/AutoAuction`) via `ISettingsService` — server port and OpenAI model id. The **API key is never in `settings.json`**: it's held encrypted via `ISecretStore` (Windows DPAPI / macOS Keychain / Linux libsecret), entered through a set-only field (masked once stored, with Change/Clear).
+*   **AI:** the **OpenAI Responses API**, called directly over HTTP (`OpenAiClient`, no SDK). Listing-from-photos generation lands in Phase 3; secure key entry + connection test exist now.
 
 ### 🧭 Current UI Layout
 *   **Home:** Inbox gallery (drag/drop + Add, multi-select) on the left; **Drafts DataGrid** on the right. Double-click a draft → full-page **Draft Detail** editor (auto-save, Discard, Open folder, **Mark as Listed**).
 *   **Listed:** DataGrid of `3_Listed` items with **Mark Sold** and **Relist** per row.
-*   **Settings:** bridge server (port / URL / find-free-port / start-stop / auto-start), AI providers, app-folder access.
+*   **Settings:** bridge server (port / URL / find-free-port / start-stop / auto-start), OpenAI key + model, app-folder access.
 
 ---
 
@@ -92,7 +92,7 @@ extension bridge** driving the real, authenticated browser session:
 **Objective:** Replace manual typing in Phase 1 with AI Vision and generate listing details automatically from the photos.
 
 **Step 1: AI Vision Integration**
-*   AI client already exists: `AiClientFactory` (LlmTornado, provider-agnostic) with keys/active provider configured in Settings. This step wires it into draft generation.
+*   AI client already exists: `OpenAiClient` (direct OpenAI Responses API calls) with the key/model configured in Settings. This step wires it into draft generation.
 *   Update the "Create Draft" button logic:
     *   Resize/compress images in memory, convert to Base64.
     *   Send to the AI with a strict JSON schema prompt: *"You are a TradeMe seller. Output a JSON object matching this schema with Title, Description, Condition, and Price..."*

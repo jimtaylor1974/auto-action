@@ -7,12 +7,16 @@ public sealed class AppConfig : IAppConfig
     public const string DraftsFolderName = "2_Drafts";
     public const string ListedFolderName = "3_Listed";
     public const string SettingsFileName = "settings.json";
+    public const string CategoriesFileName = "categories.json";
+    public const string SecretsFolderName = "secrets";
 
     public string RootPath { get; }
     public string InboxPath { get; }
     public string DraftsPath { get; }
     public string ListedPath { get; }
     public string SettingsPath { get; }
+    public string CategoriesPath { get; }
+    public string SecretsPath { get; }
 
     /// <summary>
     /// Creates the configuration. When <paramref name="rootPath"/> is null the data folder
@@ -28,6 +32,8 @@ public sealed class AppConfig : IAppConfig
         DraftsPath = Path.Combine(RootPath, DraftsFolderName);
         ListedPath = Path.Combine(RootPath, ListedFolderName);
         SettingsPath = Path.Combine(RootPath, SettingsFileName);
+        CategoriesPath = Path.Combine(RootPath, CategoriesFileName);
+        SecretsPath = Path.Combine(RootPath, SecretsFolderName);
     }
 
     public void Initialize()

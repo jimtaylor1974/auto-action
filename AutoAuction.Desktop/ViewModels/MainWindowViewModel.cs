@@ -24,7 +24,8 @@ public class MainWindowViewModel : ViewModelBase
     private readonly ISettingsService _settings;
     private readonly IActiveListingProvider _activeListing;
     private readonly LocalBridgeServer _server;
-    private readonly AiClientFactory _aiFactory;
+    private readonly OpenAiClient _openAi;
+    private readonly ICategoryService _categoryService;
 
     private AppPage _currentPageEnum = AppPage.Home;
 
@@ -34,14 +35,16 @@ public class MainWindowViewModel : ViewModelBase
         ISettingsService settings,
         IActiveListingProvider activeListing,
         LocalBridgeServer server,
-        AiClientFactory aiFactory)
+        OpenAiClient openAi,
+        ICategoryService categoryService)
     {
         _draftService = draftService;
         _config = config;
         _settings = settings;
         _activeListing = activeListing;
         _server = server;
-        _aiFactory = aiFactory;
+        _openAi = openAi;
+        _categoryService = categoryService;
 
         NavigateToHomeCommand = ReactiveCommand.Create(NavigateToHome);
         NavigateToListedCommand = ReactiveCommand.Create(NavigateToListed);
@@ -110,7 +113,7 @@ public class MainWindowViewModel : ViewModelBase
     public void NavigateToSettings()
     {
         SetPage(AppPage.Settings);
-        CurrentPage = new SettingsViewModel(_settings, _aiFactory, _server, _config);
+        CurrentPage = new SettingsViewModel(_settings, _openAi, _server, _config, _categoryService);
         StatusMessage = "Settings";
     }
 

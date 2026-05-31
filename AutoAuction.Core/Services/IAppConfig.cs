@@ -22,6 +22,12 @@ public interface IAppConfig
     /// <summary>Full path to "settings.json" in the root data folder (general app settings).</summary>
     string SettingsPath { get; }
 
+    /// <summary>Full path to "categories.json" in the root data folder (cached TradeMe category tree).</summary>
+    string CategoriesPath { get; }
+
+    /// <summary>"secrets" sub-folder holding DPAPI-encrypted secret files (Windows backend only).</summary>
+    string SecretsPath { get; }
+
     /// <summary>Creates the root and all sub-folders if they do not already exist.</summary>
     void Initialize();
 }

@@ -1,5 +1,3 @@
-using System.Collections.ObjectModel;
-
 namespace AutoAuction.Core.Models;
 
 /// <summary>
@@ -11,18 +9,18 @@ public sealed class AppSettings
     /// <summary>Default TradeMe bridge port (matches the roadmap's localhost:5999).</summary>
     public const int DefaultServerPort = 5999;
 
+    /// <summary>Default OpenAI model used for listing generation.</summary>
+    public const string DefaultOpenAiModel = "gpt-5.5";
+
     /// <summary>Port the local Chrome-extension bridge server listens on.</summary>
     public int ServerPort { get; set; } = DefaultServerPort;
 
     /// <summary>Whether the bridge server starts automatically when the app launches.</summary>
     public bool ServerAutoStart { get; set; } = true;
 
-    /// <summary>Configured AI providers (provider name + API key). Stored as plaintext.</summary>
-    public ObservableCollection<AiProviderConfig> AiProviders { get; set; } = new();
-
-    /// <summary>Name of the provider currently selected for AI requests (matches an entry above).</summary>
-    public string? ActiveProviderName { get; set; }
-
-    /// <summary>Model id to use for the active provider, e.g. "gpt-4o" or "claude-sonnet-4-6".</summary>
-    public string? ActiveModel { get; set; }
+    /// <summary>
+    /// OpenAI model id used for generation, e.g. "gpt-5.5". The API key is NOT stored here —
+    /// it's held encrypted in the OS secret store (see <c>ISecretStore</c>).
+    /// </summary>
+    public string OpenAiModel { get; set; } = DefaultOpenAiModel;
 }

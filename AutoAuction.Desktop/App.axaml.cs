@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using AutoAuction.Core.Services;
+using AutoAuction.Core.Services.Secrets;
 using AutoAuction.Desktop.ViewModels;
 using AutoAuction.Desktop.Views;
 using Microsoft.Extensions.DependencyInjection;
@@ -27,8 +28,11 @@ public partial class App : Application
         services.AddSingleton<IDraftService, DraftService>();
         services.AddSingleton<ISettingsService, SettingsService>();
         services.AddSingleton<IActiveListingProvider, ActiveListingProvider>();
+        services.AddSingleton<ICategoryService, CategoryService>();
         services.AddSingleton<LocalBridgeServer>();
-        services.AddSingleton<AiClientFactory>();
+        services.AddSingleton<ISecretStore>(sp =>
+            SecretStore.ForCurrentPlatform(sp.GetRequiredService<IAppConfig>()));
+        services.AddSingleton<OpenAiClient>();
 
         // View models.
         services.AddTransient<MainWindowViewModel>();
@@ -43,6 +47,12 @@ public partial class App : Application
         var server = ServiceProvider.GetRequiredService<LocalBridgeServer>();
         if (settings.Current.ServerAutoStart)
             server.Start(settings.Current.ServerPort);
+
+        // Download the TradeMe category catalogue on first run (fire-and-forget so we
+        // never block startup; the user can refresh it from Settings).
+        var categories = ServiceProvider.GetRequiredService<ICategoryService>();
+        if (!categories.Exists)
+            _ = categories.FetchAndSaveAsync();
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {

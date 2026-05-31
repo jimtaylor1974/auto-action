@@ -427,3 +427,6 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Large generated dev artifact (regenerate via tools/cdp or the app Settings)
+tools/cdp/trademe-categories.json

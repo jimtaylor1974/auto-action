@@ -10,7 +10,7 @@
   <ItemGroup>
     <PackageReference Include="ReactiveUI" Version="20.1.1" />
     <PackageReference Include="Magick.NET-Q8-AnyCPU" Version="14.13.1" />
-    <PackageReference Include="LlmTornado" Version="3.8.56" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="9.0.0" />
   </ItemGroup>
 
 </Project>

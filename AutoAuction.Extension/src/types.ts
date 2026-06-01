@@ -11,13 +11,16 @@ export interface ActiveListing {
     Condition: number; // 1 = Used, 2 = New
     Description: string;
     Status: number; // 0 = Draft, 1 = Listed, 2 = Sold
-    IsBuyNowOnly: boolean;
+    IsAuction: boolean;
+    HasBuyNow: boolean;
+    AllowOffers: boolean;
     StartPrice: number;
     ReservePrice: number;
     BuyNowPrice: number;
     DurationDays: number;
     PickupOption: number; // 1 = Allow, 2 = Demand, 3 = Forbid
-    IsFreeShipping: boolean;
+    Shipping: number; // 0 = Free, 1 = Courier, 2 = Specify, 3 = Unknown
+    ShippingOptions: {Method: string; Price: number}[];
     LocalImagePaths: string[];
 }
 

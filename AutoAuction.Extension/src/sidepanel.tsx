@@ -65,6 +65,48 @@ function mainWorldSetPrices(p: PriceFill) {
     };
 }
 
+// Fills TradeMe's "Specify shipping costs" rows in the MAIN world. Each row is Cost + Region +
+// Rural + Signed; our model only carries a price, so per row we set the Cost and pick Region =
+// "New Zealand" (nationwide — the Region select has no default and is invalid until chosen). Rural
+// already defaults to "Any". One row per option (adding rows as needed). Self-contained + async.
+async function mainWorldSetShippingOptions(options: {method: string; price: number}[]) {
+    const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+    const setInput = (el: HTMLInputElement | null, v: string) => {
+        if (!el) return;
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(el, v);
+        el.dispatchEvent(new Event('input', {bubbles: true}));
+        el.dispatchEvent(new Event('change', {bubbles: true}));
+        el.dispatchEvent(new Event('blur', {bubbles: true}));
+    };
+    const setSelect = (el: HTMLSelectElement | null, v: string) => {
+        if (!el) return;
+        Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')!.set!.call(el, v);
+        el.dispatchEvent(new Event('input', {bubbles: true}));
+        el.dispatchEvent(new Event('change', {bubbles: true}));
+    };
+    const costs = () =>
+        Array.from(document.querySelectorAll<HTMLInputElement>('input[name="cost"]'));
+    const regions = () =>
+        Array.from(document.querySelectorAll<HTMLSelectElement>('select[name="region"]'));
+    const addBtn = () =>
+        Array.from(document.querySelectorAll('button')).find(b =>
+            /add another option/i.test((b.textContent || '').trim())
+        );
+
+    let guard = 0;
+    while (costs().length < options.length && guard++ < 10) {
+        addBtn()?.click();
+        await sleep(500);
+    }
+    const cs = costs();
+    const rs = regions();
+    options.forEach((o, i) => {
+        setInput(cs[i] ?? null, String(o.price));
+        setSelect(rs[i] ?? null, 'nz'); // "New Zealand" — nationwide
+    });
+    return {ok: true, count: Math.min(cs.length, options.length), region: 'nz'};
+}
+
 interface TestLogEntry {
     id: string;
     at: string;
@@ -127,14 +169,19 @@ const App: React.FC = () => {
             message:
                 | FillMessage
                 | {source: 'aa-fill'; kind: 'inject-photos'}
-                | {source: 'aa-fill'; kind: 'set-prices'; prices: PriceFill},
+                | {source: 'aa-fill'; kind: 'set-prices'; prices: PriceFill}
+                | {source: 'aa-fill'; kind: 'set-shipping-options'; options: {method: string; price: number}[]},
             _sender: chrome.runtime.MessageSender,
             sendResponse: (r: unknown) => void
         ): boolean | void => {
             if (message?.source !== 'aa-fill') return;
 
             // Content script asks us to run something in the page's MAIN world (cross-world fills).
-            if (message.kind === 'inject-photos' || message.kind === 'set-prices') {
+            if (
+                message.kind === 'inject-photos' ||
+                message.kind === 'set-prices' ||
+                message.kind === 'set-shipping-options'
+            ) {
                 const tabId = tabIdRef.current;
                 if (tabId == null) {
                     sendResponse({ok: false, reason: 'no tab'});
@@ -148,12 +195,19 @@ const App: React.FC = () => {
                               func: mainWorldAttachPhotos,
                               args: [imagesRef.current]
                           })
-                        : chrome.scripting.executeScript({
-                              target: {tabId},
-                              world: 'MAIN',
-                              func: mainWorldSetPrices,
-                              args: [message.prices]
-                          });
+                        : message.kind === 'set-prices'
+                          ? chrome.scripting.executeScript({
+                                target: {tabId},
+                                world: 'MAIN',
+                                func: mainWorldSetPrices,
+                                args: [message.prices]
+                            })
+                          : chrome.scripting.executeScript({
+                                target: {tabId},
+                                world: 'MAIN',
+                                func: mainWorldSetShippingOptions,
+                                args: [message.options]
+                            });
                 exec.then(res => sendResponse(res?.[0]?.result ?? {ok: false, reason: 'no result'}))
                     .catch(e =>
                         sendResponse({ok: false, reason: e instanceof Error ? e.message : String(e)})

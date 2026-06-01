@@ -114,7 +114,11 @@ public class DraftDetailViewModel : ViewModelBase
     // Option sources for the form's combo boxes.
     public IReadOnlyList<ConditionType> ConditionOptions { get; } = Enum.GetValues<ConditionType>();
     public IReadOnlyList<PickupOption> PickupOptions { get; } = Enum.GetValues<PickupOption>();
+    public IReadOnlyList<ShippingMethod> ShippingMethodOptions { get; } = Enum.GetValues<ShippingMethod>();
     public IReadOnlyList<int> DurationOptions { get; } = new[] { 2, 3, 4, 5, 6, 7, 10, 14 };
+
+    /// <summary>True when custom shipping options apply (drives their visibility in the form).</summary>
+    public bool IsSpecifyShipping => Listing.Shipping == ShippingMethod.Specify;
 
     public DraftDetailViewModel(
         MainWindowViewModel shell,
@@ -184,6 +188,8 @@ public class DraftDetailViewModel : ViewModelBase
             this.RaisePropertyChanged(nameof(Title));
         if (e.PropertyName == nameof(ListingModel.CategoryId))
             this.RaisePropertyChanged(nameof(CategoryPathDisplay));
+        if (e.PropertyName == nameof(ListingModel.Shipping))
+            this.RaisePropertyChanged(nameof(IsSpecifyShipping));
         ScheduleSave();
     }
 
@@ -276,7 +282,9 @@ public class DraftDetailViewModel : ViewModelBase
             : ConditionType.Used;
         Listing.Description = f.Description;
         Listing.AiImageDescription = f.ImageDescription;
-        Listing.IsBuyNowOnly = f.IsBuyNowOnly;
+        Listing.IsAuction = f.IsAuction;
+        Listing.HasBuyNow = f.HasBuyNow;
+        Listing.AllowOffers = f.AllowOffers;
         Listing.StartPrice = f.StartPrice;
         Listing.ReservePrice = f.ReservePrice;
         Listing.BuyNowPrice = f.BuyNowPrice;
@@ -284,7 +292,13 @@ public class DraftDetailViewModel : ViewModelBase
         Listing.PickupOption = Enum.TryParse<PickupOption>(f.PickupOption, ignoreCase: true, out var pickup)
             ? pickup
             : PickupOption.Allow;
-        Listing.IsFreeShipping = f.IsFreeShipping;
+        Listing.Shipping = f.Shipping switch
+        {
+            "courier" => ShippingMethod.Courier,
+            "specify" => ShippingMethod.Specify,
+            "unknown" => ShippingMethod.Unknown,
+            _ => ShippingMethod.Free
+        };
 
         Listing.ShippingOptions.Clear();
         foreach (var s in f.ShippingOptions)

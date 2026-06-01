@@ -15,13 +15,15 @@ public sealed class GeneratedFields
     public string Condition { get; set; } = "Used";
     public string Description { get; set; } = string.Empty;
     public string ImageDescription { get; set; } = string.Empty;
-    public bool IsBuyNowOnly { get; set; }
+    public bool IsAuction { get; set; } = true;
+    public bool HasBuyNow { get; set; }
+    public bool AllowOffers { get; set; } = true;
     public decimal StartPrice { get; set; }
     public decimal ReservePrice { get; set; }
     public decimal BuyNowPrice { get; set; }
     public int DurationDays { get; set; } = 7;
     public string PickupOption { get; set; } = "Allow";
-    public bool IsFreeShipping { get; set; }
+    public string Shipping { get; set; } = "free"; // free | courier | specify | unknown
     public List<GeneratedShipping> ShippingOptions { get; set; } = new();
 }
 
@@ -222,8 +224,9 @@ public sealed class ListingGenerator : IListingGenerator
             sb.AppendLine();
         }
 
-        sb.AppendLine("Pricing (NZD): suggest sensible, conservative values. For an auction set a low start_price to attract bids and an optional reserve_price; set is_buy_now_only=false. Use buy_now_price where a fixed price suits. duration_days defaults to 7 (allowed: 2,3,4,5,6,7,10,14).");
-        sb.AppendLine("condition is \"Used\" or \"New\". pickup_option is \"Allow\", \"Demand\", or \"Forbid\". Set is_free_shipping true, or provide shipping_options with method+price.");
+        sb.AppendLine("Pricing (NZD): suggest sensible, conservative values. run_auction and set_buy_now are independent — turn run_auction on for an auction (low start_price + optional reserve_price), set_buy_now on for a fixed/instant price (buy_now_price); both may be on. allow_offers lets buyers make an offer. duration_days defaults to 7 (allowed: 2,3,4,5,6,7,10,14).");
+        sb.AppendLine("condition is \"Used\" or \"New\". pickup_option is \"Allow\", \"Demand\", or \"Forbid\".");
+        sb.AppendLine("shipping_method is one of: \"free\" (free NZ shipping), \"courier\" (calculate courier costs), \"specify\" (you MUST then provide shipping_options with method+price), or \"unknown\" (decide later).");
         sb.AppendLine("Keep title <= 50 characters. When confident, call submit_listing exactly once with every field.");
         return sb.ToString();
     }
@@ -278,13 +281,15 @@ public sealed class ListingGenerator : IListingGenerator
                     ["condition"] = new {type = "string", @enum = new[] {"Used", "New"}},
                     ["description"] = new {type = "string"},
                     ["image_description"] = new {type = "string"},
-                    ["is_buy_now_only"] = new {type = "boolean"},
+                    ["run_auction"] = new {type = "boolean"},
+                    ["set_buy_now"] = new {type = "boolean"},
+                    ["allow_offers"] = new {type = "boolean"},
                     ["start_price"] = new {type = "number"},
                     ["reserve_price"] = new {type = "number"},
                     ["buy_now_price"] = new {type = "number"},
                     ["duration_days"] = new {type = "integer", @enum = new[] {2, 3, 4, 5, 6, 7, 10, 14}},
                     ["pickup_option"] = new {type = "string", @enum = new[] {"Allow", "Demand", "Forbid"}},
-                    ["is_free_shipping"] = new {type = "boolean"},
+                    ["shipping_method"] = new {type = "string", @enum = new[] {"free", "courier", "specify", "unknown"}},
                     ["shipping_options"] = new
                     {
                         type = "array",
@@ -299,7 +304,7 @@ public sealed class ListingGenerator : IListingGenerator
                 required = new[]
                 {
                     "title", "category_number", "condition", "description", "image_description",
-                    "is_buy_now_only", "duration_days", "pickup_option", "is_free_shipping"
+                    "run_auction", "set_buy_now", "duration_days", "pickup_option", "shipping_method"
                 }
             })
     };
@@ -319,13 +324,15 @@ public sealed class ListingGenerator : IListingGenerator
         f.Condition = Str(r, "condition", "Used");
         f.Description = Str(r, "description");
         f.ImageDescription = Str(r, "image_description");
-        f.IsBuyNowOnly = Bool(r, "is_buy_now_only");
+        f.IsAuction = Bool(r, "run_auction");
+        f.HasBuyNow = Bool(r, "set_buy_now");
+        f.AllowOffers = Bool(r, "allow_offers");
         f.StartPrice = Dec(r, "start_price");
         f.ReservePrice = Dec(r, "reserve_price");
         f.BuyNowPrice = Dec(r, "buy_now_price");
         f.DurationDays = Int(r, "duration_days", 7);
         f.PickupOption = Str(r, "pickup_option", "Allow");
-        f.IsFreeShipping = Bool(r, "is_free_shipping");
+        f.Shipping = Str(r, "shipping_method", "free").ToLowerInvariant();
 
         if (r.TryGetProperty("shipping_options", out var so) && so.ValueKind == JsonValueKind.Array)
         {

@@ -239,28 +239,34 @@
                 <!-- ===== Pricing ===== -->
                 <TextBlock Text="Pricing" Classes="section"/>
 
-                <CheckBox Content="Buy Now only (not an auction)"
-                          IsChecked="{Binding Listing.IsBuyNowOnly}"/>
+                <StackPanel Orientation="Horizontal" Spacing="24">
+                    <CheckBox Content="Run an auction" IsChecked="{Binding Listing.IsAuction}"/>
+                    <CheckBox Content="Set a Buy Now price" IsChecked="{Binding Listing.HasBuyNow}"/>
+                </StackPanel>
 
                 <Grid ColumnDefinitions="*,*,*" Margin="0,4,0,0">
                     <StackPanel Grid.Column="0" Margin="0,0,8,0">
                         <TextBlock Text="Start price" Classes="label"/>
                         <NumericUpDown Value="{Binding Listing.StartPrice}"
                                        Minimum="0" Increment="1" FormatString="0.00"
-                                       IsEnabled="{Binding !Listing.IsBuyNowOnly}"/>
+                                       IsEnabled="{Binding Listing.IsAuction}"/>
                     </StackPanel>
                     <StackPanel Grid.Column="1" Margin="0,0,8,0">
-                        <TextBlock Text="Reserve price" Classes="label"/>
+                        <TextBlock Text="Reserve price (optional)" Classes="label"/>
                         <NumericUpDown Value="{Binding Listing.ReservePrice}"
                                        Minimum="0" Increment="1" FormatString="0.00"
-                                       IsEnabled="{Binding !Listing.IsBuyNowOnly}"/>
+                                       IsEnabled="{Binding Listing.IsAuction}"/>
                     </StackPanel>
                     <StackPanel Grid.Column="2">
                         <TextBlock Text="Buy Now price" Classes="label"/>
                         <NumericUpDown Value="{Binding Listing.BuyNowPrice}"
-                                       Minimum="0" Increment="1" FormatString="0.00"/>
+                                       Minimum="0" Increment="1" FormatString="0.00"
+                                       IsEnabled="{Binding Listing.HasBuyNow}"/>
                     </StackPanel>
                 </Grid>
+
+                <CheckBox Content="Allow buyers to make an offer" Margin="0,6,0,0"
+                          IsChecked="{Binding Listing.AllowOffers}"/>
 
                 <TextBlock Text="Duration (days)" Classes="label"/>
                 <ComboBox ItemsSource="{Binding DurationOptions}"
@@ -270,16 +276,13 @@
                 <!-- ===== Shipping ===== -->
                 <TextBlock Text="Shipping &amp; Logistics" Classes="section"/>
 
-                <TextBlock Text="Pickup (required)" Classes="label"/>
-                <ComboBox ItemsSource="{Binding PickupOptions}"
-                          SelectedItem="{Binding Listing.PickupOption}"
-                          HorizontalAlignment="Left" MinWidth="160"/>
+                <TextBlock Text="Shipping method" Classes="label"/>
+                <ComboBox ItemsSource="{Binding ShippingMethodOptions}"
+                          SelectedItem="{Binding Listing.Shipping}"
+                          HorizontalAlignment="Left" MinWidth="200"/>
 
-                <CheckBox Content="Free shipping" Margin="0,8,0,0"
-                          IsChecked="{Binding Listing.IsFreeShipping}"/>
-
-                <StackPanel IsEnabled="{Binding !Listing.IsFreeShipping}" Spacing="6"
-                            Margin="0,4,0,0">
+                <StackPanel IsVisible="{Binding IsSpecifyShipping}" Spacing="6"
+                            Margin="0,6,0,0">
                     <TextBlock Text="Custom shipping options" Classes="label"/>
                     <TextBlock Text="No options yet — click &quot;Add shipping option&quot; below to add a courier and price."
                                FontSize="11" Opacity="0.6" TextWrapping="Wrap"
@@ -312,6 +315,11 @@
                         </StackPanel>
                     </Button>
                 </StackPanel>
+
+                <TextBlock Text="Pickup (required)" Classes="label"/>
+                <ComboBox ItemsSource="{Binding PickupOptions}"
+                          SelectedItem="{Binding Listing.PickupOption}"
+                          HorizontalAlignment="Left" MinWidth="160"/>
 
             </StackPanel>
         </ScrollViewer>

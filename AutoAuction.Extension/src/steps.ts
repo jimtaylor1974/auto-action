@@ -2,19 +2,24 @@
 // docs/trademe-listing-flow.md. Runs in the injected content script (isolated world). Each step
 // advances the SPA and reports a human-readable line via `report`. Stops before "Start listing".
 
+export type ShippingMethodName = 'free' | 'courier' | 'specify' | 'unknown';
+
 export interface FillData {
     title: string;
     subtitle?: string;
     categoryPath: string[]; // segment names, top-level first
     description: string;
     condition: 'Used' | 'New';
-    isBuyNowOnly: boolean;
+    auction: boolean;
+    buyNow: boolean;
+    allowOffers: boolean;
     startPrice: number;
     reservePrice: number;
     buyNowPrice: number;
     durationDays: number;
     pickupOption: 'Allow' | 'Demand' | 'Forbid';
-    isFreeShipping: boolean;
+    shippingMethod: ShippingMethodName;
+    shippingOptions: {method: string; price: number}[];
     promote: 'gallery' | 'basic';
 }
 
@@ -208,6 +213,11 @@ export type SetPrices = (
     prices: PriceFill
 ) => Promise<{ok: boolean; start?: string; buyNow?: string} | undefined>;
 
+/** Adds + fills the "Specify shipping costs" rows in the MAIN world. */
+export type SetShippingOptions = (
+    options: {method: string; price: number}[]
+) => Promise<{ok: boolean; count?: number; reason?: string} | undefined>;
+
 export async function step_photos(
     images: FillImage[],
     report: Report,
@@ -277,10 +287,11 @@ export async function step_pricePayment(
         if (label && cb && cb.checked !== want) label.click();
     };
 
-    const auction = !data.isBuyNowOnly;
-    const buyNow = data.isBuyNowOnly || data.buyNowPrice > 0;
+    const auction = data.auction;
+    const buyNow = data.buyNow;
     setCheckbox('Run an auction', auction);
     setCheckbox('Set a Buy Now price', buyNow);
+    setCheckbox('Allow buyers to make an offer', data.allowOffers);
 
     const priceInput = (labelRe: RegExp) => {
         const c = Array.from(
@@ -307,19 +318,44 @@ export async function step_pricePayment(
     await advance(/delivery/, 'Shipping', report);
 }
 
-export async function step_delivery(data: FillData, report: Report): Promise<void> {
+export async function step_delivery(
+    data: FillData,
+    report: Report,
+    setShippingOptions: SetShippingOptions
+): Promise<void> {
     // Shipping methods are radios referenced by label for=. Clicking the label selects them.
-    // Avoid "Specify shipping costs" (needs option rows we don't fill) → use a safe method.
-    const wanted = data.isFreeShipping ? 'free shipping within new zealand' : 'i don';
+    const wanted = {
+        free: 'free shipping within new zealand',
+        courier: 'calculate courier costs',
+        specify: 'specify shipping costs',
+        unknown: 'i don' // "I don't know costs yet" (curly apostrophe)
+    }[data.shippingMethod];
+
     await waitFor(() => byTextStarts('label', wanted));
     const optLabel = byTextStarts('label', wanted);
-    if (!optLabel) throw new Error('Shipping method option not found.');
+    if (!optLabel) throw new Error(`Shipping method "${data.shippingMethod}" option not found.`);
     const forId = optLabel.getAttribute('for');
     const radio = forId ? (document.getElementById(forId) as HTMLInputElement | null) : null;
     optLabel.click();
     const ok = await waitFor(() => (radio ? radio.checked : false), 4000);
-    report(`Shipping: ${data.isFreeShipping ? 'free' : "don't know costs yet"} (selected=${!!ok})`);
+    report(`Shipping: ${data.shippingMethod} (selected=${!!ok})`);
     if (!ok) throw new Error('Could not select a shipping method.');
+
+    // "Specify shipping costs" needs a row per custom option — added/filled in the MAIN world.
+    if (data.shippingMethod === 'specify' && data.shippingOptions.length) {
+        await sleep(400);
+        const res = await setShippingOptions(data.shippingOptions);
+        report(`shipping options: ${res?.count ?? 0} row(s)${res?.reason ? ` (${res.reason})` : ''}`);
+    }
+
+    // "Allow pick-up?" toggle (checkbox via label for=). Allow/Demand → on, Forbid → off.
+    const wantPickup = data.pickupOption !== 'Forbid';
+    const pLabel = byTextStarts('label', 'allow pick');
+    const pForId = pLabel?.getAttribute('for');
+    const pCb = pForId ? (document.getElementById(pForId) as HTMLInputElement | null) : null;
+    if (pLabel && pCb && pCb.checked !== wantPickup) pLabel.click();
+    report(`pickup=${wantPickup}`);
+
     await sleep(400);
     await advance(/promote/, 'Promote', report);
 }

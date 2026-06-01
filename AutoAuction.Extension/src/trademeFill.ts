@@ -42,13 +42,17 @@ function toFillData(l: ActiveListing): FillData {
         categoryPath: l.CategoryPath || [],
         description: l.Description,
         condition: l.Condition === 2 ? 'New' : 'Used',
-        isBuyNowOnly: l.IsBuyNowOnly,
+        auction: l.IsAuction,
+        buyNow: l.HasBuyNow,
+        allowOffers: l.AllowOffers,
         startPrice: l.StartPrice,
         reservePrice: l.ReservePrice,
         buyNowPrice: l.BuyNowPrice,
         durationDays: l.DurationDays,
         pickupOption: l.PickupOption === 2 ? 'Demand' : l.PickupOption === 3 ? 'Forbid' : 'Allow',
-        isFreeShipping: l.IsFreeShipping,
+        shippingMethod:
+            l.Shipping === 1 ? 'courier' : l.Shipping === 2 ? 'specify' : l.Shipping === 3 ? 'unknown' : 'free',
+        shippingOptions: (l.ShippingOptions || []).map(o => ({method: o.Method, price: o.Price})),
         promote: 'gallery'
     };
 }
@@ -86,7 +90,9 @@ function toFillData(l: ActiveListing): FillData {
         await step_pricePayment(data, report, prices =>
             chrome.runtime.sendMessage({source: 'aa-fill', kind: 'set-prices', prices})
         );
-        await step_delivery(data, report);
+        await step_delivery(data, report, options =>
+            chrome.runtime.sendMessage({source: 'aa-fill', kind: 'set-shipping-options', options})
+        );
         await step_promote(data, report);
 
         send({kind: 'ready'});

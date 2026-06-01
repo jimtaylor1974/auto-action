@@ -31,23 +31,32 @@ public sealed class AiPreviewViewModel : ViewModelBase
         get
         {
             var parts = new System.Collections.Generic.List<string>();
-            if (Fields.IsBuyNowOnly)
-                parts.Add($"Buy Now ${Fields.BuyNowPrice:0.##}");
-            else
+            if (Fields.IsAuction)
             {
                 parts.Add($"Start ${Fields.StartPrice:0.##}");
                 if (Fields.ReservePrice > 0) parts.Add($"Reserve ${Fields.ReservePrice:0.##}");
-                if (Fields.BuyNowPrice > 0) parts.Add($"Buy Now ${Fields.BuyNowPrice:0.##}");
             }
+            if (Fields.HasBuyNow) parts.Add($"Buy Now ${Fields.BuyNowPrice:0.##}");
+            if (Fields.AllowOffers) parts.Add("offers ok");
             parts.Add($"{Fields.DurationDays} days");
             return string.Join(" · ", parts);
         }
     }
 
-    public string ShippingSummary => Fields.IsFreeShipping
-        ? $"Free shipping · Pickup: {Fields.PickupOption}"
-        : Fields.ShippingOptions.Count == 0
-            ? $"Pickup: {Fields.PickupOption}"
-            : string.Join(", ", Fields.ShippingOptions.Select(s => $"{s.Method} ${s.Price:0.##}")) +
-              $" · Pickup: {Fields.PickupOption}";
+    public string ShippingSummary
+    {
+        get
+        {
+            var method = Fields.Shipping switch
+            {
+                "courier" => "Courier costs",
+                "specify" => Fields.ShippingOptions.Count > 0
+                    ? string.Join(", ", Fields.ShippingOptions.Select(s => $"{s.Method} ${s.Price:0.##}"))
+                    : "Specify costs",
+                "unknown" => "Costs TBD",
+                _ => "Free shipping"
+            };
+            return $"{method} · Pickup: {Fields.PickupOption}";
+        }
+    }
 }

@@ -101,17 +101,35 @@ public class ListingModel : ReactiveObject
     }
 
     // ----- 2. Pricing Configuration -----
+    // Mirrors TradeMe's two independent toggles: "Run an auction" and "Set a Buy Now price"
+    // (either or both may be on).
 
-    private bool _isBuyNowOnly;
-    /// <summary>If true the item is a fixed price "Buy Now Only" listing rather than an auction.</summary>
-    public bool IsBuyNowOnly
+    private bool _isAuction = true;
+    /// <summary>"Run an auction" — uses <see cref="StartPrice"/> / <see cref="ReservePrice"/>.</summary>
+    public bool IsAuction
     {
-        get => _isBuyNowOnly;
-        set => this.RaiseAndSetIfChanged(ref _isBuyNowOnly, value);
+        get => _isAuction;
+        set => this.RaiseAndSetIfChanged(ref _isAuction, value);
+    }
+
+    private bool _hasBuyNow;
+    /// <summary>"Set a Buy Now price" — uses <see cref="BuyNowPrice"/>.</summary>
+    public bool HasBuyNow
+    {
+        get => _hasBuyNow;
+        set => this.RaiseAndSetIfChanged(ref _hasBuyNow, value);
+    }
+
+    private bool _allowOffers = true;
+    /// <summary>"Allow buyers to make an offer" (offers accepted until the reserve is met).</summary>
+    public bool AllowOffers
+    {
+        get => _allowOffers;
+        set => this.RaiseAndSetIfChanged(ref _allowOffers, value);
     }
 
     private decimal _startPrice;
-    /// <summary>REQUIRED for auctions. The opening bid.</summary>
+    /// <summary>REQUIRED when <see cref="IsAuction"/>. The opening bid.</summary>
     public decimal StartPrice
     {
         get => _startPrice;
@@ -119,7 +137,7 @@ public class ListingModel : ReactiveObject
     }
 
     private decimal _reservePrice;
-    /// <summary>REQUIRED for auctions. Must be greater than or equal to <see cref="StartPrice"/>.</summary>
+    /// <summary>Optional. Must be greater than or equal to <see cref="StartPrice"/>.</summary>
     public decimal ReservePrice
     {
         get => _reservePrice;
@@ -127,7 +145,7 @@ public class ListingModel : ReactiveObject
     }
 
     private decimal _buyNowPrice;
-    /// <summary>Optional. The instant purchase price.</summary>
+    /// <summary>REQUIRED when <see cref="HasBuyNow"/>. The instant purchase price.</summary>
     public decimal BuyNowPrice
     {
         get => _buyNowPrice;
@@ -152,17 +170,15 @@ public class ListingModel : ReactiveObject
         set => this.RaiseAndSetIfChanged(ref _pickupOption, value);
     }
 
-    private bool _isFreeShipping;
-    /// <summary>
-    /// True = free shipping. False = custom options defined in <see cref="ShippingOptions"/>.
-    /// </summary>
-    public bool IsFreeShipping
+    private ShippingMethod _shipping = ShippingMethod.Free;
+    /// <summary>How delivery is offered (Free / Courier / Specify / Unknown).</summary>
+    public ShippingMethod Shipping
     {
-        get => _isFreeShipping;
-        set => this.RaiseAndSetIfChanged(ref _isFreeShipping, value);
+        get => _shipping;
+        set => this.RaiseAndSetIfChanged(ref _shipping, value);
     }
 
-    /// <summary>Custom shipping methods used when <see cref="IsFreeShipping"/> is false.</summary>
+    /// <summary>Custom shipping methods used when <see cref="Shipping"/> is <see cref="ShippingMethod.Specify"/>.</summary>
     public ObservableCollection<ShippingOption> ShippingOptions { get; set; } = new();
 
     // ----- 4. Media -----

@@ -11,6 +11,7 @@ import {
     testBridgeConnection
 } from './bridge';
 import {ActiveImage, BridgeTestResult, FillMessage} from './types';
+import type {PriceFill} from './steps';
 
 const STATUS_LABELS = ['Draft', 'Listed', 'Sold'];
 const CREATE_LISTING_URL = 'https://www.trademe.co.nz/a/marketplace/create-listing';
@@ -34,6 +35,34 @@ function mainWorldAttachPhotos(images: {fileName: string; contentType: string; b
     } catch (e) {
         return {ok: false, reason: e instanceof Error ? e.message : String(e)};
     }
+}
+
+// Sets TradeMe's currency-masked price inputs in the page MAIN world. Self-contained.
+function mainWorldSetPrices(p: PriceFill) {
+    const norm = (s: string | null | undefined) => (s || '').replace(/\s+/g, ' ').trim();
+    const setVal = (el: HTMLInputElement | null, v: string) => {
+        if (!el) return;
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(el, v);
+        el.dispatchEvent(new Event('input', {bubbles: true}));
+        el.dispatchEvent(new Event('change', {bubbles: true}));
+        el.dispatchEvent(new Event('blur', {bubbles: true}));
+    };
+    const inputByLabel = (re: RegExp) => {
+        const c = Array.from(document.querySelectorAll('tg-input-container,.o-input')).find(c =>
+            re.test(norm((c.querySelector('.o-input__label') as HTMLElement | null)?.textContent))
+        );
+        return (c?.querySelector('input') as HTMLInputElement | null) ?? null;
+    };
+    if (p.auction) {
+        setVal(inputByLabel(/start price/i), String(p.startPrice || 1));
+        if (p.reservePrice > 0) setVal(inputByLabel(/reserve price/i), String(p.reservePrice));
+    }
+    if (p.buyNow) setVal(inputByLabel(/buy now price/i), String(p.buyNowPrice || 0));
+    return {
+        ok: true,
+        start: inputByLabel(/start price/i)?.value,
+        buyNow: inputByLabel(/buy now price/i)?.value
+    };
 }
 
 interface TestLogEntry {
@@ -95,27 +124,37 @@ const App: React.FC = () => {
     // Listen for progress/ready/listed/error + the MAIN-world photo-attach request.
     useEffect(() => {
         const onMessage = (
-            message: FillMessage | {source: 'aa-fill'; kind: 'inject-photos'},
+            message:
+                | FillMessage
+                | {source: 'aa-fill'; kind: 'inject-photos'}
+                | {source: 'aa-fill'; kind: 'set-prices'; prices: PriceFill},
             _sender: chrome.runtime.MessageSender,
             sendResponse: (r: unknown) => void
         ): boolean | void => {
             if (message?.source !== 'aa-fill') return;
 
-            // Content script asks us to attach the photos in the page's MAIN world.
-            if (message.kind === 'inject-photos') {
+            // Content script asks us to run something in the page's MAIN world (cross-world fills).
+            if (message.kind === 'inject-photos' || message.kind === 'set-prices') {
                 const tabId = tabIdRef.current;
                 if (tabId == null) {
                     sendResponse({ok: false, reason: 'no tab'});
                     return true;
                 }
-                chrome.scripting
-                    .executeScript({
-                        target: {tabId},
-                        world: 'MAIN',
-                        func: mainWorldAttachPhotos,
-                        args: [imagesRef.current]
-                    })
-                    .then(res => sendResponse(res?.[0]?.result ?? {ok: false, reason: 'no result'}))
+                const exec =
+                    message.kind === 'inject-photos'
+                        ? chrome.scripting.executeScript({
+                              target: {tabId},
+                              world: 'MAIN',
+                              func: mainWorldAttachPhotos,
+                              args: [imagesRef.current]
+                          })
+                        : chrome.scripting.executeScript({
+                              target: {tabId},
+                              world: 'MAIN',
+                              func: mainWorldSetPrices,
+                              args: [message.prices]
+                          });
+                exec.then(res => sendResponse(res?.[0]?.result ?? {ok: false, reason: 'no result'}))
                     .catch(e =>
                         sendResponse({ok: false, reason: e instanceof Error ? e.message : String(e)})
                     );

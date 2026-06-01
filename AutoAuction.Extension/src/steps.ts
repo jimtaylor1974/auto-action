@@ -195,6 +195,19 @@ export async function step_itemDetails(data: FillData, report: Report): Promise<
 /** Attaches files in the page's MAIN world (the content-script world can't set input.files). */
 export type AttachPhotos = () => Promise<{ok: boolean; filesLength?: number; reason?: string} | undefined>;
 
+export interface PriceFill {
+    auction: boolean;
+    buyNow: boolean;
+    startPrice: number;
+    reservePrice: number;
+    buyNowPrice: number;
+}
+
+/** Sets the currency-masked price inputs in the MAIN world (isolated-world value sets don't stick). */
+export type SetPrices = (
+    prices: PriceFill
+) => Promise<{ok: boolean; start?: string; buyNow?: string} | undefined>;
+
 export async function step_photos(
     images: FillImage[],
     report: Report,
@@ -210,16 +223,25 @@ export async function step_photos(
     if (!input) throw new Error('Photo upload field not found on the Photos step.');
     if (!images.length) throw new Error('No images were provided for this listing.');
 
-    // Delegate the actual DataTransfer to the MAIN world (assigning input.files from the isolated
-    // content-script world is silently dropped — verified: input.files.length stayed 0).
-    report(`Attaching ${images.length} photo(s) in the page context…`);
-    const res = await attachPhotos();
-    if (!res?.ok) throw new Error(`Photo attach failed${res?.reason ? `: ${res.reason}` : ''}.`);
-    report(`input.files.length=${res.filesLength ?? '?'} after main-world assignment`);
+    const cardCount = () => document.querySelectorAll('tm-sdui-photo-card').length;
 
-    // Wait for the photo card(s) to appear (upload registered) before advancing.
-    await waitFor(() => document.querySelectorAll('tm-sdui-photo-card').length > 0, 30000);
-    const cards = document.querySelectorAll('tm-sdui-photo-card').length;
+    // Delegate the actual DataTransfer to the MAIN world (assigning input.files from the isolated
+    // content-script world is silently dropped — verified: input.files.length stayed 0). Retry a
+    // few times: the attach/card render can race, especially when TradeMe is throttling (429).
+    const MAX_ATTEMPTS = 3;
+    let cards = 0;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS && cards === 0; attempt++) {
+        await sleep(attempt === 1 ? 600 : 1500);
+        const res = await attachPhotos();
+        if (!res?.ok) {
+            report(`attempt ${attempt}: attach failed${res?.reason ? ` (${res.reason})` : ''}`);
+            continue;
+        }
+        report(`attempt ${attempt}: input.files.length=${res.filesLength ?? '?'}, waiting for card…`);
+        await waitFor(() => cardCount() > 0, 12000);
+        cards = cardCount();
+    }
+
     const rejected = document.querySelectorAll('.tm-sdui-photo-card__error').length;
     const errText = Array.from(
         document.querySelectorAll<HTMLElement>('.tm-sdui-photo-card__error, [role=alert]')
@@ -231,15 +253,20 @@ export async function step_photos(
     report(`photo cards=${cards} rejected=${rejected}${errText ? ` :: ${errText}` : ''}`);
 
     if (cards === 0)
-        throw new Error('Photo did not attach (0 cards). See the photo diagnostics above.');
+        throw new Error('Photo did not attach (0 cards) after retries. See the diagnostics above.');
     if (rejected >= cards)
         throw new Error(`TradeMe rejected the photo${errText ? `: ${errText}` : ''}.`);
 
-    await sleep(1500);
+    // Let any in-flight upload settle before advancing.
+    await sleep(2000);
     await advance(/price-payment/, 'Price & payment', report);
 }
 
-export async function step_pricePayment(data: FillData, report: Report): Promise<void> {
+export async function step_pricePayment(
+    data: FillData,
+    report: Report,
+    setPrices: SetPrices
+): Promise<void> {
     await waitFor(() => byTextStarts('label', 'Run an auction'));
 
     // The checkbox input is referenced by the label's for= (not nested). Clicking the label toggles it.
@@ -254,23 +281,29 @@ export async function step_pricePayment(data: FillData, report: Report): Promise
     const buyNow = data.isBuyNowOnly || data.buyNowPrice > 0;
     setCheckbox('Run an auction', auction);
     setCheckbox('Set a Buy Now price', buyNow);
-    await sleep(300);
 
     const priceInput = (labelRe: RegExp) => {
         const c = Array.from(
             document.querySelectorAll<HTMLElement>('tg-input-container,.o-input')
-        ).find(c => labelRe.test(c.querySelector('.o-input__label,label')?.textContent || ''));
+        ).find(c => labelRe.test(c.querySelector('.o-input__label')?.textContent || ''));
         return c?.querySelector<HTMLInputElement>('input');
     };
 
-    if (auction) {
-        setInputValue(priceInput(/start price/i), String(data.startPrice || 1));
-        if (data.reservePrice > 0) setInputValue(priceInput(/reserve price/i), String(data.reservePrice));
-    }
-    if (buyNow) setInputValue(priceInput(/buy now price/i), String(data.buyNowPrice || 0));
-    report(auction ? `Auction · start $${data.startPrice}` : `Buy Now $${data.buyNowPrice}`);
+    // The price inputs render asynchronously after the checkboxes are ticked — wait for them.
+    if (auction) await waitFor(() => priceInput(/start price/i), 8000);
+    if (buyNow) await waitFor(() => priceInput(/buy now price/i), 8000);
 
-    await sleep(300);
+    // Set the currency-masked inputs in the MAIN world (isolated-world value sets don't stick).
+    const res = await setPrices({
+        auction,
+        buyNow,
+        startPrice: data.startPrice || 1,
+        reservePrice: data.reservePrice,
+        buyNowPrice: data.buyNowPrice
+    });
+    report(`prices set: start="${res?.start ?? ''}" buyNow="${res?.buyNow ?? ''}"`);
+
+    await sleep(400);
     await advance(/delivery/, 'Shipping', report);
 }
 

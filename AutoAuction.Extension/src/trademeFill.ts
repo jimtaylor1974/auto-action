@@ -83,7 +83,9 @@ function toFillData(l: ActiveListing): FillData {
         await step_photos(images, report, () =>
             chrome.runtime.sendMessage({source: 'aa-fill', kind: 'inject-photos'})
         );
-        await step_pricePayment(data, report);
+        await step_pricePayment(data, report, prices =>
+            chrome.runtime.sendMessage({source: 'aa-fill', kind: 'set-prices', prices})
+        );
         await step_delivery(data, report);
         await step_promote(data, report);
 

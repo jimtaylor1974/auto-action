@@ -1,4 +1,5 @@
 using System.Linq;
+using AutoAuction.Core.Models;
 using AutoAuction.Core.Services;
 
 namespace AutoAuction.Desktop.ViewModels;
@@ -51,7 +52,8 @@ public sealed class AiPreviewViewModel : ViewModelBase
             {
                 "courier" => "Courier costs",
                 "specify" => Fields.ShippingOptions.Count > 0
-                    ? string.Join(", ", Fields.ShippingOptions.Select(s => $"{s.Method} ${s.Price:0.##}"))
+                    ? string.Join(", ", Fields.ShippingOptions.Select(s =>
+                        $"${s.Price:0.##} {ShippingRegions.DisplayName(s.Region)}/{s.Rural}{(s.Signed ? " signed" : "")}"))
                     : "Specify costs",
                 "unknown" => "Costs TBD",
                 _ => "Free shipping"

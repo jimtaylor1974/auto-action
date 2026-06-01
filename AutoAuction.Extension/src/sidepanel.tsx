@@ -65,11 +65,13 @@ function mainWorldSetPrices(p: PriceFill) {
     };
 }
 
-// Fills TradeMe's "Specify shipping costs" rows in the MAIN world. Each row is Cost + Region +
-// Rural + Signed; our model only carries a price, so per row we set the Cost and pick Region =
-// "New Zealand" (nationwide — the Region select has no default and is invalid until chosen). Rural
-// already defaults to "Any". One row per option (adding rows as needed). Self-contained + async.
-async function mainWorldSetShippingOptions(options: {method: string; price: number}[]) {
+// Fills TradeMe's "Specify shipping costs" rows in the MAIN world. Each row is
+// Cost + Region + Rural + Signed; we set all four from the option (Region/Rural values match the
+// <select> option values — e.g. "nz", "Urban"). TradeMe requires rows unique by (Region, Rural).
+// One row per option (adding rows as needed). Self-contained + async.
+async function mainWorldSetShippingOptions(
+    options: {price: number; region: string; rural: string; signed: boolean}[]
+) {
     const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
     const setInput = (el: HTMLInputElement | null, v: string) => {
         if (!el) return;
@@ -88,6 +90,10 @@ async function mainWorldSetShippingOptions(options: {method: string; price: numb
         Array.from(document.querySelectorAll<HTMLInputElement>('input[name="cost"]'));
     const regions = () =>
         Array.from(document.querySelectorAll<HTMLSelectElement>('select[name="region"]'));
+    const rurals = () =>
+        Array.from(document.querySelectorAll<HTMLSelectElement>('select[name="isRural"]'));
+    const signs = () =>
+        Array.from(document.querySelectorAll<HTMLInputElement>('input[name="signatureRequired"]'));
     const addBtn = () =>
         Array.from(document.querySelectorAll('button')).find(b =>
             /add another option/i.test((b.textContent || '').trim())
@@ -100,11 +106,16 @@ async function mainWorldSetShippingOptions(options: {method: string; price: numb
     }
     const cs = costs();
     const rs = regions();
+    const ru = rurals();
+    const sg = signs();
     options.forEach((o, i) => {
         setInput(cs[i] ?? null, String(o.price));
-        setSelect(rs[i] ?? null, 'nz'); // "New Zealand" — nationwide
+        setSelect(rs[i] ?? null, o.region || 'nz');
+        setSelect(ru[i] ?? null, o.rural || 'Any');
+        const cb = sg[i];
+        if (cb && cb.checked !== !!o.signed) cb.click();
     });
-    return {ok: true, count: Math.min(cs.length, options.length), region: 'nz'};
+    return {ok: true, count: Math.min(cs.length, options.length)};
 }
 
 interface TestLogEntry {
@@ -170,7 +181,11 @@ const App: React.FC = () => {
                 | FillMessage
                 | {source: 'aa-fill'; kind: 'inject-photos'}
                 | {source: 'aa-fill'; kind: 'set-prices'; prices: PriceFill}
-                | {source: 'aa-fill'; kind: 'set-shipping-options'; options: {method: string; price: number}[]},
+                | {
+                      source: 'aa-fill';
+                      kind: 'set-shipping-options';
+                      options: {price: number; region: string; rural: string; signed: boolean}[];
+                  },
             _sender: chrome.runtime.MessageSender,
             sendResponse: (r: unknown) => void
         ): boolean | void => {

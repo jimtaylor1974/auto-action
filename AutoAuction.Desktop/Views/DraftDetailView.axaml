@@ -284,19 +284,38 @@
                 <StackPanel IsVisible="{Binding IsSpecifyShipping}" Spacing="6"
                             Margin="0,6,0,0">
                     <TextBlock Text="Custom shipping options" Classes="label"/>
-                    <TextBlock Text="No options yet — click &quot;Add shipping option&quot; below to add a courier and price."
+                    <TextBlock Text="No options yet — click &quot;Add shipping option&quot; below. Each row must be unique by Region + Rural (e.g. New Zealand / Urban and New Zealand / Rural for two nationwide rates)."
                                FontSize="11" Opacity="0.6" TextWrapping="Wrap"
                                IsVisible="{Binding !Listing.ShippingOptions.Count}"/>
+                    <Grid ColumnDefinitions="170,*,130,Auto,Auto" Margin="0,2,0,0"
+                          IsVisible="{Binding !!Listing.ShippingOptions.Count}">
+                        <TextBlock Grid.Column="0" Text="Cost" FontSize="11" Opacity="0.6" Margin="0,0,8,0"/>
+                        <TextBlock Grid.Column="1" Text="Region" FontSize="11" Opacity="0.6" Margin="0,0,8,0"/>
+                        <TextBlock Grid.Column="2" Text="Rural" FontSize="11" Opacity="0.6" Margin="0,0,8,0"/>
+                    </Grid>
                     <ItemsControl ItemsSource="{Binding Listing.ShippingOptions}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="models:ShippingOption">
-                                <Grid ColumnDefinitions="*,120,Auto" Margin="0,0,0,6">
-                                    <TextBox Grid.Column="0" Text="{Binding Method}"
-                                             Watermark="Method e.g. CourierPost Nationwide"
-                                             Margin="0,0,8,0"/>
-                                    <NumericUpDown Grid.Column="1" Value="{Binding Price}"
-                                                   Minimum="0" Increment="0.5" FormatString="0.00"/>
-                                    <Button Grid.Column="2" Margin="8,0,0,0"
+                                <Grid ColumnDefinitions="170,*,130,Auto,Auto" Margin="0,0,0,6">
+                                    <NumericUpDown Grid.Column="0" Value="{Binding Price}"
+                                                   Minimum="0" Increment="0.5" FormatString="C2"
+                                                   Margin="0,0,8,0"/>
+                                    <ComboBox Grid.Column="1" Margin="0,0,8,0" HorizontalAlignment="Stretch"
+                                              ItemsSource="{Binding $parent[ItemsControl].((vm:DraftDetailViewModel)DataContext).RegionOptions}"
+                                              SelectedValueBinding="{Binding Value}"
+                                              SelectedValue="{Binding Region}">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate x:DataType="models:ShippingRegion">
+                                                <TextBlock Text="{Binding Display}"/>
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                    <ComboBox Grid.Column="2" Margin="0,0,8,0" MinWidth="100"
+                                              ItemsSource="{Binding $parent[ItemsControl].((vm:DraftDetailViewModel)DataContext).RuralOptions}"
+                                              SelectedItem="{Binding Rural}"/>
+                                    <CheckBox Grid.Column="3" Content="Signed" VerticalAlignment="Center"
+                                              IsChecked="{Binding Signed}"/>
+                                    <Button Grid.Column="4" Margin="8,0,0,0"
                                             Background="Transparent"
                                             ToolTip.Tip="Remove this option"
                                             Command="{Binding $parent[ItemsControl].((vm:DraftDetailViewModel)DataContext).RemoveShippingOptionCommand}"

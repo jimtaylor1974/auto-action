@@ -52,7 +52,12 @@ function toFillData(l: ActiveListing): FillData {
         pickupOption: l.PickupOption === 2 ? 'Demand' : l.PickupOption === 3 ? 'Forbid' : 'Allow',
         shippingMethod:
             l.Shipping === 1 ? 'courier' : l.Shipping === 2 ? 'specify' : l.Shipping === 3 ? 'unknown' : 'free',
-        shippingOptions: (l.ShippingOptions || []).map(o => ({method: o.Method, price: o.Price})),
+        shippingOptions: (l.ShippingOptions || []).map(o => ({
+            price: o.Price,
+            region: o.Region || 'nz',
+            rural: o.Rural || 'Any',
+            signed: !!o.Signed
+        })),
         promote: 'gallery'
     };
 }

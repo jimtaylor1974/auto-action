@@ -115,6 +115,8 @@ public class DraftDetailViewModel : ViewModelBase
     public IReadOnlyList<ConditionType> ConditionOptions { get; } = Enum.GetValues<ConditionType>();
     public IReadOnlyList<PickupOption> PickupOptions { get; } = Enum.GetValues<PickupOption>();
     public IReadOnlyList<ShippingMethod> ShippingMethodOptions { get; } = Enum.GetValues<ShippingMethod>();
+    public IReadOnlyList<ShippingRegion> RegionOptions { get; } = ShippingRegions.All;
+    public IReadOnlyList<string> RuralOptions { get; } = ShippingRegions.RuralOptions;
     public IReadOnlyList<int> DurationOptions { get; } = new[] { 2, 3, 4, 5, 6, 7, 10, 14 };
 
     /// <summary>True when custom shipping options apply (drives their visibility in the form).</summary>
@@ -302,7 +304,13 @@ public class DraftDetailViewModel : ViewModelBase
 
         Listing.ShippingOptions.Clear();
         foreach (var s in f.ShippingOptions)
-            Listing.ShippingOptions.Add(new ShippingOption {Method = s.Method, Price = s.Price});
+            Listing.ShippingOptions.Add(new ShippingOption
+            {
+                Price = s.Price,
+                Region = string.IsNullOrWhiteSpace(s.Region) ? ShippingRegions.DefaultRegion : s.Region,
+                Rural = string.IsNullOrWhiteSpace(s.Rural) ? ShippingRegions.DefaultRural : s.Rural,
+                Signed = s.Signed
+            });
 
         _shell.StatusMessage = "Applied AI draft";
         AiPreview = null;
@@ -311,7 +319,15 @@ public class DraftDetailViewModel : ViewModelBase
     private static string Truncate(string value, int max) =>
         string.IsNullOrEmpty(value) || value.Length <= max ? value : value[..max];
 
-    private void AddShippingOption() => Listing.ShippingOptions.Add(new ShippingOption());
+    private void AddShippingOption()
+    {
+        // Default a unique Rural so a second nationwide row doesn't collide (TradeMe rejects
+        // duplicate region+rural rows): Any → Urban → Rural.
+        var used = Listing.ShippingOptions.Select(o => o.Rural).ToHashSet();
+        var rural = ShippingRegions.RuralOptions.FirstOrDefault(r => !used.Contains(r))
+                    ?? ShippingRegions.DefaultRural;
+        Listing.ShippingOptions.Add(new ShippingOption {Rural = rural});
+    }
 
     private void RemoveShippingOption(ShippingOption? option)
     {

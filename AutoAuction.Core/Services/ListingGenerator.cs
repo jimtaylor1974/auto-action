@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Text;
 using System.Text.Json;
 using AutoAuction.Core.Models;
@@ -27,7 +28,7 @@ public sealed class GeneratedFields
     public List<GeneratedShipping> ShippingOptions { get; set; } = new();
 }
 
-public sealed record GeneratedShipping(string Method, decimal Price);
+public sealed record GeneratedShipping(decimal Price, string Region, string Rural, bool Signed);
 
 public sealed record ListingDraftResult(bool Ok, string? Error, GeneratedFields? Fields);
 
@@ -226,7 +227,8 @@ public sealed class ListingGenerator : IListingGenerator
 
         sb.AppendLine("Pricing (NZD): suggest sensible, conservative values. run_auction and set_buy_now are independent — turn run_auction on for an auction (low start_price + optional reserve_price), set_buy_now on for a fixed/instant price (buy_now_price); both may be on. allow_offers lets buyers make an offer. duration_days defaults to 7 (allowed: 2,3,4,5,6,7,10,14).");
         sb.AppendLine("condition is \"Used\" or \"New\". pickup_option is \"Allow\", \"Demand\", or \"Forbid\".");
-        sb.AppendLine("shipping_method is one of: \"free\" (free NZ shipping), \"courier\" (calculate courier costs), \"specify\" (you MUST then provide shipping_options with method+price), or \"unknown\" (decide later).");
+        sb.AppendLine("shipping_method is one of: \"free\" (free NZ shipping), \"courier\" (calculate courier costs), \"specify\" (you MUST then provide shipping_options), or \"unknown\" (decide later).");
+        sb.AppendLine("Each specify shipping_options row has: price (NZD), region (default \"nz\" = nationwide New Zealand), rural (\"Any\", \"Urban\", or \"Rural\"), and optional signed. Rows must be UNIQUE by (region, rural). To offer two nationwide rates, use region \"nz\" with rural \"Urban\" for the cheaper urban rate and rural \"Rural\" for the higher rural rate — never two rows with the same region+rural.");
         sb.AppendLine("Keep title <= 50 characters. When confident, call submit_listing exactly once with every field.");
         return sb.ToString();
     }
@@ -296,8 +298,18 @@ public sealed class ListingGenerator : IListingGenerator
                         items = new
                         {
                             type = "object",
-                            properties = new {method = new {type = "string"}, price = new {type = "number"}},
-                            required = new[] {"method", "price"}
+                            properties = new Dictionary<string, object>
+                            {
+                                ["price"] = new {type = "number"},
+                                ["region"] = new
+                                {
+                                    type = "string",
+                                    @enum = ShippingRegions.All.Select(r => r.Value).ToArray()
+                                },
+                                ["rural"] = new {type = "string", @enum = new[] {"Any", "Urban", "Rural"}},
+                                ["signed"] = new {type = "boolean"}
+                            },
+                            required = new[] {"price", "region", "rural"}
                         }
                     }
                 },
@@ -337,7 +349,11 @@ public sealed class ListingGenerator : IListingGenerator
         if (r.TryGetProperty("shipping_options", out var so) && so.ValueKind == JsonValueKind.Array)
         {
             foreach (var item in so.EnumerateArray())
-                f.ShippingOptions.Add(new GeneratedShipping(Str(item, "method"), Dec(item, "price")));
+                f.ShippingOptions.Add(new GeneratedShipping(
+                    Dec(item, "price"),
+                    Str(item, "region", ShippingRegions.DefaultRegion),
+                    Str(item, "rural", ShippingRegions.DefaultRural),
+                    Bool(item, "signed")));
         }
 
         return f;

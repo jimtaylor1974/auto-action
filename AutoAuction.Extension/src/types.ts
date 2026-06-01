@@ -20,7 +20,7 @@ export interface ActiveListing {
     DurationDays: number;
     PickupOption: number; // 1 = Allow, 2 = Demand, 3 = Forbid
     Shipping: number; // 0 = Free, 1 = Courier, 2 = Specify, 3 = Unknown
-    ShippingOptions: {Method: string; Price: number}[];
+    ShippingOptions: {Price: number; Region: string; Rural: string; Signed: boolean}[];
     LocalImagePaths: string[];
 }
 

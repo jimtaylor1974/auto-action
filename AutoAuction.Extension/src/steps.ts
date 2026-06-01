@@ -19,7 +19,7 @@ export interface FillData {
     durationDays: number;
     pickupOption: 'Allow' | 'Demand' | 'Forbid';
     shippingMethod: ShippingMethodName;
-    shippingOptions: {method: string; price: number}[];
+    shippingOptions: {price: number; region: string; rural: string; signed: boolean}[];
     promote: 'gallery' | 'basic';
 }
 
@@ -215,7 +215,7 @@ export type SetPrices = (
 
 /** Adds + fills the "Specify shipping costs" rows in the MAIN world. */
 export type SetShippingOptions = (
-    options: {method: string; price: number}[]
+    options: {price: number; region: string; rural: string; signed: boolean}[]
 ) => Promise<{ok: boolean; count?: number; reason?: string} | undefined>;
 
 export async function step_photos(

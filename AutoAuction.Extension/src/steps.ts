@@ -242,11 +242,12 @@ export async function step_photos(
 export async function step_pricePayment(data: FillData, report: Report): Promise<void> {
     await waitFor(() => byTextStarts('label', 'Run an auction'));
 
+    // The checkbox input is referenced by the label's for= (not nested). Clicking the label toggles it.
     const setCheckbox = (labelStart: string, want: boolean) => {
-        const cb = byTextStarts('label', labelStart)?.querySelector<HTMLInputElement>(
-            'input[type=checkbox]'
-        );
-        if (cb && cb.checked !== want) cb.click();
+        const label = byTextStarts('label', labelStart);
+        const forId = label?.getAttribute('for');
+        const cb = forId ? (document.getElementById(forId) as HTMLInputElement | null) : null;
+        if (label && cb && cb.checked !== want) label.click();
     };
 
     const auction = !data.isBuyNowOnly;
@@ -274,11 +275,19 @@ export async function step_pricePayment(data: FillData, report: Report): Promise
 }
 
 export async function step_delivery(data: FillData, report: Report): Promise<void> {
-    const label = data.isFreeShipping ? 'free shipping within new zealand' : 'i don';
-    await waitFor(() => byTextStarts('label,[role=radio],button,tg-radio', label));
-    byTextStarts('label,[role=radio],button,tg-radio', label)?.click();
-    report(data.isFreeShipping ? 'Shipping: free' : 'Shipping: costs unknown');
-    await sleep(300);
+    // Shipping methods are radios referenced by label for=. Clicking the label selects them.
+    // Avoid "Specify shipping costs" (needs option rows we don't fill) → use a safe method.
+    const wanted = data.isFreeShipping ? 'free shipping within new zealand' : 'i don';
+    await waitFor(() => byTextStarts('label', wanted));
+    const optLabel = byTextStarts('label', wanted);
+    if (!optLabel) throw new Error('Shipping method option not found.');
+    const forId = optLabel.getAttribute('for');
+    const radio = forId ? (document.getElementById(forId) as HTMLInputElement | null) : null;
+    optLabel.click();
+    const ok = await waitFor(() => (radio ? radio.checked : false), 4000);
+    report(`Shipping: ${data.isFreeShipping ? 'free' : "don't know costs yet"} (selected=${!!ok})`);
+    if (!ok) throw new Error('Could not select a shipping method.');
+    await sleep(400);
     await advance(/promote/, 'Promote', report);
 }
 

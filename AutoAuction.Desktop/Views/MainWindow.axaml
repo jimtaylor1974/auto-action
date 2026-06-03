@@ -24,6 +24,10 @@
                 <MenuItem Header="_Listed" Command="{Binding NavigateToListedCommand}"/>
                 <MenuItem Header="_Settings" Command="{Binding NavigateToSettingsCommand}"/>
             </MenuItem>
+            <MenuItem Header="_Help">
+                <MenuItem Header="_Setup" Command="{Binding NavigateToHelpCommand}"/>
+                <MenuItem Header="_User Guide" Command="{Binding NavigateToUserGuideCommand}"/>
+            </MenuItem>
         </Menu>
 
         <!-- Preflight nudge: shown only when a launch check fails. -->
@@ -84,6 +88,16 @@
                         <StackPanel Spacing="4" HorizontalAlignment="Center">
                             <mi:MaterialIcon Kind="Cog" Width="24" Height="24"/>
                             <TextBlock Text="Settings" FontSize="11" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Button Command="{Binding NavigateToHelpCommand}"
+                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                            Padding="8,10" Background="Transparent"
+                            Classes.selected="{Binding IsHelpSelected}">
+                        <StackPanel Spacing="4" HorizontalAlignment="Center">
+                            <mi:MaterialIcon Kind="HelpCircleOutline" Width="24" Height="24"/>
+                            <TextBlock Text="Help" FontSize="11" HorizontalAlignment="Center"/>
                         </StackPanel>
                     </Button>
                 </StackPanel>

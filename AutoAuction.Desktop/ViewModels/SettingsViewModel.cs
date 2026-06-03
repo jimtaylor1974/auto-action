@@ -102,6 +102,36 @@ public class SettingsViewModel : ViewModelBase
         set => this.RaiseAndSetIfChanged(ref _openAiModel, value);
     }
 
+    // --- Quick import folder (synced cloud folder) -----------------------------------------
+
+    private string? _cloudPhotosPath;
+    /// <summary>Synced cloud folder the Home "quick import" button opens into.</summary>
+    public string? CloudPhotosPath
+    {
+        get => _cloudPhotosPath;
+        set
+        {
+            this.RaiseAndSetIfChanged(ref _cloudPhotosPath, value);
+            this.RaisePropertyChanged(nameof(ShowDetectedSuggestion));
+        }
+    }
+
+    /// <summary>A cloud folder detected on this PC, offered as a one-click suggestion (not auto-applied).</summary>
+    public string? DetectedCloudFolder { get; } = SuggestDefaultCloudFolder();
+
+    /// <summary>Show the "use detected folder" suggestion only when it differs from the current value.</summary>
+    public bool ShowDetectedSuggestion =>
+        !string.IsNullOrEmpty(DetectedCloudFolder) &&
+        !string.Equals(DetectedCloudFolder, CloudPhotosPath?.Trim(), StringComparison.OrdinalIgnoreCase);
+
+    private string? _cloudPhotosLabel;
+    /// <summary>Friendly label for the cloud button, e.g. "OneDrive".</summary>
+    public string? CloudPhotosLabel
+    {
+        get => _cloudPhotosLabel;
+        set => this.RaiseAndSetIfChanged(ref _cloudPhotosLabel, value);
+    }
+
     private string _testResult = string.Empty;
     public string TestResult
     {
@@ -136,6 +166,8 @@ public class SettingsViewModel : ViewModelBase
     public ReactiveCommand<Unit, Unit> ClearKeyCommand { get; }
     public ReactiveCommand<Unit, Unit> OpenRootFolderCommand { get; }
     public ReactiveCommand<Unit, Unit> FetchCategoriesCommand { get; }
+    public ReactiveCommand<Unit, Unit> ClearCloudFolderCommand { get; }
+    public ReactiveCommand<Unit, Unit> UseDetectedFolderCommand { get; }
 
     public SettingsViewModel(
         ISettingsService settings,
@@ -154,6 +186,8 @@ public class SettingsViewModel : ViewModelBase
         _serverPort = current.ServerPort;
         _serverAutoStart = current.ServerAutoStart;
         _openAiModel = current.OpenAiModel;
+        _cloudPhotosPath = current.CloudPhotosPath;
+        _cloudPhotosLabel = current.CloudPhotosLabel;
         _hasKey = _openAi.HasApiKey;
 
         SaveCommand = ReactiveCommand.Create(Save);
@@ -167,6 +201,8 @@ public class SettingsViewModel : ViewModelBase
         ClearKeyCommand = ReactiveCommand.Create(ClearKey);
         OpenRootFolderCommand = ReactiveCommand.Create(OpenRootFolder);
         FetchCategoriesCommand = ReactiveCommand.CreateFromTask(FetchCategoriesAsync);
+        ClearCloudFolderCommand = ReactiveCommand.Create(ClearCloudFolder);
+        UseDetectedFolderCommand = ReactiveCommand.Create(() => { CloudPhotosPath = DetectedCloudFolder; });
 
         CategoriesStatus = DescribeCachedCategories();
     }
@@ -203,6 +239,12 @@ public class SettingsViewModel : ViewModelBase
         _settings.Current.OpenAiModel = string.IsNullOrWhiteSpace(OpenAiModel)
             ? AutoAuction.Core.Models.AppSettings.DefaultOpenAiModel
             : OpenAiModel;
+        _settings.Current.CloudPhotosPath = string.IsNullOrWhiteSpace(CloudPhotosPath)
+            ? null
+            : CloudPhotosPath.Trim();
+        _settings.Current.CloudPhotosLabel = string.IsNullOrWhiteSpace(CloudPhotosLabel)
+            ? null
+            : CloudPhotosLabel.Trim();
         _settings.Save();
 
         // Apply a port change to a running server immediately.
@@ -289,4 +331,30 @@ public class SettingsViewModel : ViewModelBase
     }
 
     private void OpenRootFolder() => SystemFolder.Open(_config.RootPath);
+
+    private void ClearCloudFolder()
+    {
+        CloudPhotosPath = null;
+        CloudPhotosLabel = null;
+    }
+
+    /// <summary>
+    /// Probes common cloud-sync locations and returns the first that exists, so the field
+    /// is pre-filled with a sensible default the first time Settings is opened.
+    /// </summary>
+    private static string? SuggestDefaultCloudFolder()
+    {
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var candidates = new[]
+        {
+            System.IO.Path.Combine(home, "Pictures", "iCloud Photos"),
+            System.IO.Path.Combine(home, "OneDrive", "Pictures"),
+            System.IO.Path.Combine(home, "OneDrive"),
+            System.IO.Path.Combine(home, "Dropbox"),
+            System.IO.Path.Combine(home, "My Drive"),
+            @"G:\My Drive",
+        };
+
+        return candidates.FirstOrDefault(System.IO.Directory.Exists);
+    }
 }

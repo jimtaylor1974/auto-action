@@ -23,4 +23,13 @@ public sealed class AppSettings
     /// it's held encrypted in the OS secret store (see <c>ISecretStore</c>).
     /// </summary>
     public string OpenAiModel { get; set; } = DefaultOpenAiModel;
+
+    /// <summary>
+    /// Optional synced cloud folder (iCloud / OneDrive / Dropbox / Google Drive) used by the
+    /// Home "quick import" button. Null/empty means the button is hidden.
+    /// </summary>
+    public string? CloudPhotosPath { get; set; }
+
+    /// <summary>Optional friendly label for the cloud button, e.g. "OneDrive".</summary>
+    public string? CloudPhotosLabel { get; set; }
 }

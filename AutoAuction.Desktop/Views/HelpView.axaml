@@ -1,0 +1,61 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:AutoAuction.Desktop.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:md="clr-namespace:Markdown.Avalonia;assembly=Markdown.Avalonia"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="500"
+             x:Class="AutoAuction.Desktop.Views.HelpView"
+             x:DataType="vm:HelpViewModel">
+
+    <Grid ColumnDefinitions="200,4,*">
+        <!-- Sidebar -->
+        <Border Grid.Column="0" Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}" BorderThickness="0,0,1,0"
+                MinWidth="150">
+            <StackPanel Margin="0,16,0,0">
+                <TextBlock Text="Help Topics" Margin="16,0,16,12" FontWeight="SemiBold" FontSize="12"
+                           Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+
+                <Button Command="{Binding SelectSetup}"
+                        Classes.selected="{Binding IsSetupSelected}"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                        Padding="16,10" Background="Transparent" BorderThickness="0">
+                    <TextBlock Text="Setup"/>
+                </Button>
+
+                <Button Command="{Binding SelectUserGuide}"
+                        Classes.selected="{Binding IsUserGuideSelected}"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                        Padding="16,10" Background="Transparent" BorderThickness="0">
+                    <TextBlock Text="User Guide"/>
+                </Button>
+            </StackPanel>
+        </Border>
+
+        <!-- Grid Splitter -->
+        <GridSplitter Grid.Column="1" Background="Transparent" HorizontalAlignment="Stretch"/>
+
+        <!-- Content Area -->
+        <Grid Grid.Column="2" Margin="24">
+            <Border Background="{DynamicResource SystemControlBackgroundAltMediumHighBrush}"
+                    CornerRadius="8" Padding="24">
+                <ContentControl Content="{Binding CurrentDoc}"
+                                HorizontalContentAlignment="Stretch"
+                                VerticalContentAlignment="Stretch"
+                                HorizontalAlignment="Stretch"
+                                VerticalAlignment="Stretch">
+                    <ContentControl.ContentTemplate>
+                        <DataTemplate DataType="vm:HelpDoc">
+                            <md:MarkdownScrollViewer x:CompileBindings="False"
+                                                     Markdown="{Binding Markdown}"
+                                                     VerticalAlignment="Top"
+                                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                                     ScrollViewer.VerticalScrollBarVisibility="Visible"/>
+                        </DataTemplate>
+                    </ContentControl.ContentTemplate>
+                </ContentControl>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

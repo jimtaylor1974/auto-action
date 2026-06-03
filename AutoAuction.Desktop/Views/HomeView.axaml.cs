@@ -44,9 +44,23 @@ public partial class HomeView : UserControl
 
     private async void OnAddPhotosClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not HomeViewModel vm)
-            return;
+        if (DataContext is HomeViewModel vm)
+            await PickAndImportAsync(vm, startInCloudFolder: false);
+    }
 
+    private async void OnGrabFromCloudClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is HomeViewModel vm)
+            await PickAndImportAsync(vm, startInCloudFolder: true);
+    }
+
+    /// <summary>
+    /// Opens the image file picker and imports the chosen files into the inbox. When
+    /// <paramref name="startInCloudFolder"/> is true, the dialog opens inside the configured
+    /// synced cloud folder so the user can grab phone photos straight from there.
+    /// </summary>
+    private async System.Threading.Tasks.Task PickAndImportAsync(HomeViewModel vm, bool startInCloudFolder)
+    {
         var topLevel = TopLevel.GetTopLevel(this);
         if (topLevel is null)
             return;
@@ -59,11 +73,16 @@ public partial class HomeView : UserControl
             }
         };
 
+        IStorageFolder? startLocation = null;
+        if (startInCloudFolder && !string.IsNullOrEmpty(vm.CloudFolderPath))
+            startLocation = await topLevel.StorageProvider.TryGetFolderFromPathAsync(vm.CloudFolderPath);
+
         var files = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
             Title = "Add photos to inbox",
             AllowMultiple = true,
-            FileTypeFilter = new[] { imageFilter }
+            FileTypeFilter = new[] { imageFilter },
+            SuggestedStartLocation = startLocation
         });
 
         var paths = files

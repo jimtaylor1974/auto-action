@@ -119,9 +119,18 @@ public sealed class DraftService : IDraftService
             }
             else if (IsImage(sourcePath))
             {
-                var destPath = GetUniqueDestination(_config.InboxPath, Path.GetFileName(sourcePath));
-                File.Copy(sourcePath, destPath);
-                imported++;
+                try
+                {
+                    var destPath = GetUniqueDestination(_config.InboxPath, Path.GetFileName(sourcePath));
+                    File.Copy(sourcePath, destPath);
+                    imported++;
+                }
+                catch (IOException)
+                {
+                    // Skip rather than abort the batch if a file can't be read - e.g. an
+                    // online-only cloud placeholder (iCloud/OneDrive Files-On-Demand) that
+                    // fails to hydrate because we're offline.
+                }
             }
         }
 

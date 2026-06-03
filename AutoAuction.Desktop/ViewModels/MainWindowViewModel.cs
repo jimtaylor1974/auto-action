@@ -13,7 +13,8 @@ public enum AppPage
     Drafts,
     DraftDetail,
     Listed,
-    Settings
+    Settings,
+    Help
 }
 
 /// <summary>
@@ -59,6 +60,8 @@ public class MainWindowViewModel : ViewModelBase
         NavigateToDraftsCommand = ReactiveCommand.Create(NavigateToDrafts);
         NavigateToListedCommand = ReactiveCommand.Create(NavigateToListed);
         NavigateToSettingsCommand = ReactiveCommand.Create(NavigateToSettings);
+        NavigateToHelpCommand = ReactiveCommand.Create(() => NavigateToHelp());
+        NavigateToUserGuideCommand = ReactiveCommand.Create(() => NavigateToHelp("User Guide"));
         RecheckPreflightCommand = ReactiveCommand.CreateFromTask(RunPreflightAsync);
         ExitCommand = ReactiveCommand.Create(Exit);
 
@@ -98,6 +101,8 @@ public class MainWindowViewModel : ViewModelBase
     public ReactiveCommand<Unit, Unit> NavigateToDraftsCommand { get; }
     public ReactiveCommand<Unit, Unit> NavigateToListedCommand { get; }
     public ReactiveCommand<Unit, Unit> NavigateToSettingsCommand { get; }
+    public ReactiveCommand<Unit, Unit> NavigateToHelpCommand { get; }
+    public ReactiveCommand<Unit, Unit> NavigateToUserGuideCommand { get; }
     public ReactiveCommand<Unit, Unit> RecheckPreflightCommand { get; }
     public ReactiveCommand<Unit, Unit> ExitCommand { get; }
 
@@ -123,6 +128,7 @@ public class MainWindowViewModel : ViewModelBase
     public bool IsDraftsSelected => _currentPageEnum == AppPage.Drafts;
     public bool IsListedSelected => _currentPageEnum == AppPage.Listed;
     public bool IsSettingsSelected => _currentPageEnum == AppPage.Settings;
+    public bool IsHelpSelected => _currentPageEnum == AppPage.Help;
 
     /// <summary>Called once the window is shown to display the first page.</summary>
     public void Initialize()
@@ -160,6 +166,7 @@ public class MainWindowViewModel : ViewModelBase
         this.RaisePropertyChanged(nameof(IsDraftsSelected));
         this.RaisePropertyChanged(nameof(IsListedSelected));
         this.RaisePropertyChanged(nameof(IsSettingsSelected));
+        this.RaisePropertyChanged(nameof(IsHelpSelected));
     }
 
     public void NavigateToHome()
@@ -169,7 +176,7 @@ public class MainWindowViewModel : ViewModelBase
 
         _activeListing.ActiveFolderPath = null;
         SetPage(AppPage.Home);
-        CurrentPage = new HomeViewModel(this, _draftService, _config);
+        CurrentPage = new HomeViewModel(this, _draftService, _config, _settings);
         StatusMessage = "Home";
 
         if (cameFromSettings)
@@ -204,6 +211,13 @@ public class MainWindowViewModel : ViewModelBase
         SetPage(AppPage.Settings);
         CurrentPage = new SettingsViewModel(_settings, _openAi, _server, _config, _categoryService);
         StatusMessage = "Settings";
+    }
+
+    public void NavigateToHelp(string topic = "Setup")
+    {
+        SetPage(AppPage.Help);
+        CurrentPage = new HelpViewModel(topic, t => NavigateToHelp(t));
+        StatusMessage = "Help";
     }
 
     private static void Exit() => Environment.Exit(0);

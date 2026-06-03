@@ -125,6 +125,44 @@
                 </StackPanel>
             </Border>
 
+            <!-- ===== Quick import folder ===== -->
+            <TextBlock Text="Quick import folder" Classes="section"/>
+            <Border Classes="card">
+                <StackPanel Spacing="8">
+                    <TextBlock TextWrapping="Wrap" Opacity="0.75" FontSize="12"
+                               Text="Point this at a folder your phone syncs photos into — e.g. iCloud Photos, OneDrive, Dropbox or Google Drive. Once set, a cloud button appears on the Inbox so you can grab photos straight from there."/>
+
+                    <TextBlock Text="Folder" Classes="label"/>
+                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                        <TextBox Grid.Column="0" Text="{Binding CloudPhotosPath}"
+                                 Watermark="Not set — choose a folder, then Save settings"
+                                 VerticalAlignment="Center"/>
+                        <Button Grid.Column="1" Click="OnBrowseCloudFolderClick">
+                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                <mi:MaterialIcon Kind="FolderSearch" Width="16" Height="16"/>
+                                <TextBlock Text="Browse…" FontSize="12"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Grid.Column="2" Content="Clear" Command="{Binding ClearCloudFolderCommand}"/>
+                    </Grid>
+
+                    <!-- Auto-detected suggestion (offered, not applied until you Save) -->
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8"
+                          IsVisible="{Binding ShowDetectedSuggestion}">
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock Text="Detected on this PC:" FontSize="11" Opacity="0.7"/>
+                            <SelectableTextBlock Text="{Binding DetectedCloudFolder}" FontSize="12"/>
+                        </StackPanel>
+                        <Button Grid.Column="1" Content="Use this" Command="{Binding UseDetectedFolderCommand}"
+                                VerticalAlignment="Center"/>
+                    </Grid>
+
+                    <TextBlock Text="Button label (optional)" Classes="label"/>
+                    <TextBox Text="{Binding CloudPhotosLabel}" Watermark="e.g. OneDrive"
+                             MaxWidth="240" HorizontalAlignment="Left"/>
+                </StackPanel>
+            </Border>
+
             <!-- ===== General ===== -->
             <TextBlock Text="General" Classes="section"/>
             <Border Classes="card">

@@ -20,6 +20,7 @@ public class HomeViewModel : ViewModelBase
     private readonly MainWindowViewModel _shell;
     private readonly IDraftService _draftService;
     private readonly IAppConfig _config;
+    private readonly ISettingsService _settings;
 
     private readonly BehaviorSubject<bool> _hasSelectionSubject = new(false);
 
@@ -30,11 +31,13 @@ public class HomeViewModel : ViewModelBase
     public ReactiveCommand<Unit, Unit> CreateOneListingCommand { get; }
     public ReactiveCommand<Unit, Unit> CreatePerPhotoCommand { get; }
 
-    public HomeViewModel(MainWindowViewModel shell, IDraftService draftService, IAppConfig config)
+    public HomeViewModel(MainWindowViewModel shell, IDraftService draftService, IAppConfig config,
+        ISettingsService settings)
     {
         _shell = shell;
         _draftService = draftService;
         _config = config;
+        _settings = settings;
 
         RefreshInboxCommand = ReactiveCommand.Create(RefreshInbox);
         OpenInboxFolderCommand = ReactiveCommand.Create(OpenInboxFolder);
@@ -59,6 +62,29 @@ public class HomeViewModel : ViewModelBase
     public bool ShowPerPhoto => SelectedCount > 1;
 
     public string InboxPath => _config.InboxPath;
+
+    /// <summary>Configured synced cloud folder (iCloud/OneDrive/Dropbox/…), or null if unset.</summary>
+    public string? CloudFolderPath => _settings.Current.CloudPhotosPath;
+
+    /// <summary>True when a cloud folder is configured and currently exists on disk.</summary>
+    public bool HasCloudFolder =>
+        !string.IsNullOrWhiteSpace(CloudFolderPath) && Directory.Exists(CloudFolderPath);
+
+    /// <summary>Tooltip/label for the cloud button: the user's label, else the folder name, else "Cloud".</summary>
+    public string CloudButtonLabel
+    {
+        get
+        {
+            var label = _settings.Current.CloudPhotosLabel;
+            if (!string.IsNullOrWhiteSpace(label))
+                return label;
+
+            var name = string.IsNullOrWhiteSpace(CloudFolderPath)
+                ? null
+                : Path.GetFileName(CloudFolderPath.TrimEnd(Path.DirectorySeparatorChar));
+            return string.IsNullOrWhiteSpace(name) ? "Cloud" : name;
+        }
+    }
 
     /// <summary>Imports external image files (drag-drop or file picker) into the inbox.</summary>
     public void ImportPhotos(IEnumerable<string> paths)

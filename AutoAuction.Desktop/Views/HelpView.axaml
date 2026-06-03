@@ -47,8 +47,16 @@
                                 VerticalAlignment="Stretch">
                     <ContentControl.ContentTemplate>
                         <DataTemplate DataType="vm:HelpDoc">
+                            <!-- DO NOT REMOVE MarkdownStyleName="Standard".
+                                 Markdown.Avalonia.Tight's default/theme styles render code spans
+                                 (inline `code`, fenced blocks) via the legacy StaticBinding, which
+                                 Avalonia 11.3 rejects with "Unsupported IBinding implementation
+                                 'StaticBinding'" — it crashes when code appears inside list items or
+                                 table cells. The "Standard" style avoids StaticBinding entirely.
+                                 (Same reason x:CompileBindings stays False on this control.) -->
                             <md:MarkdownScrollViewer x:CompileBindings="False"
                                                      Markdown="{Binding Markdown}"
+                                                     MarkdownStyleName="Standard"
                                                      VerticalAlignment="Top"
                                                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                                      ScrollViewer.VerticalScrollBarVisibility="Visible"/>

@@ -4,15 +4,15 @@ Welcome to **AutoAuction** — a local-first helper for creating TradeMe listing
 
 ## 1. Install and run
 
-AutoAuction is a desktop app. Launch it and you'll land on the **Home** page, which shows your photo **Inbox** on the left. The app creates its data folder automatically at **Documents\AutoAuction**.
+AutoAuction is a desktop app. Launch it and you'll land on the **Home** page, which shows your photo **Inbox** on the left. The app creates its data folder automatically at `Documents\AutoAuction`.
 
 Inside it you'll find three folders that track each listing's lifecycle:
 
 | Folder | Purpose |
 | --- | --- |
-| **1_Inbox** | Raw photos waiting to be turned into listings |
-| **2_Drafts** | Work-in-progress listings |
-| **3_Listed** | Listings you've published |
+| `1_Inbox` | Raw photos waiting to be turned into listings |
+| `2_Drafts` | Work-in-progress listings |
+| `3_Listed` | Listings you've published |
 
 You can open this folder any time from **Settings → App data folder → Open**.
 
@@ -20,7 +20,7 @@ You can open this folder any time from **Settings → App data folder → Open**
 
 The Chrome extension talks to AutoAuction through a tiny server running on your own machine. Open **Settings → Local Bridge Server**:
 
-1. Leave the **Port** at **5999** unless something else is using it — if so, click **Find free port**.
+1. Leave the **Port** at `5999` unless something else is using it — if so, click **Find free port**.
 2. Tick **Start the server automatically when the app launches** so it's always ready.
 3. Use **Start** / **Stop** to control it manually, and check the status line to confirm it's running.
 
@@ -28,7 +28,7 @@ The Chrome extension talks to AutoAuction through a tiny server running on your 
 
 AutoAuction can draft a listing's title, description, and pricing from your photos. Open **Settings → OpenAI**:
 
-1. Paste your API key into the key field and click **Save key**. The key is encrypted by your operating system (Windows DPAPI / macOS Keychain / Linux keyring) — it is **never** stored in **settings.json**.
+1. Paste your API key into the key field and click **Save key**. The key is encrypted by your operating system (Windows DPAPI / macOS Keychain / Linux keyring) — it is **never** stored in `settings.json`.
 2. Set the **Model** if you want something other than the default.
 3. Click **Test connection** to confirm the key works.
 
@@ -36,14 +36,14 @@ AutoAuction can draft a listing's title, description, and pricing from your phot
 
 ## 4. Download the TradeMe categories
 
-Open **Settings → TradeMe Categories** and click **Fetch / refresh categories**. This caches the full category tree locally (as **categories.json**) so listings can be matched to the right category. Refresh it occasionally if TradeMe changes their categories.
+Open **Settings → TradeMe Categories** and click **Fetch / refresh categories**. This caches the full category tree locally (as `categories.json`) so listings can be matched to the right category. Refresh it occasionally if TradeMe changes their categories.
 
 ## 5. Install the Chrome extension
 
 Publishing happens through your real, logged-in browser — no TradeMe API required.
 
 1. Load the AutoAuction Chrome extension in your browser.
-2. When prompted, allow its host permissions for **localhost** (the bridge server) and **trademe.co.nz**.
+2. When prompted, allow its host permissions for `localhost` (the bridge server) and `trademe.co.nz`.
 3. On a TradeMe **Sell** page you'll see a **⚡ Fill from AutoAuction** button that fills the form from your active draft.
 
 ## 6. Set up quick photo import (optional)

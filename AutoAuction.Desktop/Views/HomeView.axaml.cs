@@ -42,12 +42,6 @@ public partial class HomeView : UserControl
             vm.ImportPhotos(paths);
     }
 
-    private void OnDraftDoubleTapped(object? sender, TappedEventArgs e)
-    {
-        if (DataContext is HomeViewModel vm)
-            vm.OpenDraft(vm.SelectedDraft);
-    }
-
     private async void OnAddPhotosClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not HomeViewModel vm)

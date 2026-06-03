@@ -20,6 +20,7 @@
             </MenuItem>
             <MenuItem Header="_View">
                 <MenuItem Header="_Home" Command="{Binding NavigateToHomeCommand}"/>
+                <MenuItem Header="_Drafts" Command="{Binding NavigateToDraftsCommand}"/>
                 <MenuItem Header="_Listed" Command="{Binding NavigateToListedCommand}"/>
                 <MenuItem Header="_Settings" Command="{Binding NavigateToSettingsCommand}"/>
             </MenuItem>
@@ -53,6 +54,16 @@
                         <StackPanel Spacing="4" HorizontalAlignment="Center">
                             <mi:MaterialIcon Kind="Home" Width="24" Height="24"/>
                             <TextBlock Text="Home" FontSize="11" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Button Command="{Binding NavigateToDraftsCommand}"
+                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                            Padding="8,10" Background="Transparent"
+                            Classes.selected="{Binding IsDraftsSelected}">
+                        <StackPanel Spacing="4" HorizontalAlignment="Center">
+                            <mi:MaterialIcon Kind="FileDocumentMultiple" Width="24" Height="24"/>
+                            <TextBlock Text="Drafts" FontSize="11" HorizontalAlignment="Center"/>
                         </StackPanel>
                     </Button>
 

@@ -1,0 +1,157 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:AutoAuction.Desktop.ViewModels"
+             xmlns:models="using:AutoAuction.Core.Models"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:mi="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+             mc:Ignorable="d" d:DesignWidth="640" d:DesignHeight="640"
+             x:Class="AutoAuction.Desktop.Views.BulkEditView"
+             x:DataType="vm:BulkEditViewModel">
+
+    <Grid RowDefinitions="Auto,*,Auto" Margin="16">
+
+        <StackPanel Grid.Row="0" Spacing="2" Margin="0,0,0,10">
+            <TextBlock Text="{Binding Heading}" FontSize="16" FontWeight="SemiBold"/>
+            <TextBlock Text="Tick a section to apply it to every selected draft. Applied sections are locked so a later Draft with AI won't overwrite them."
+                       FontSize="11" Opacity="0.7" TextWrapping="Wrap"/>
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1">
+            <StackPanel Spacing="14">
+
+                <!-- Pricing -->
+                <StackPanel Spacing="6">
+                    <CheckBox IsChecked="{Binding ApplyPricing}" FontWeight="SemiBold"
+                              Content="Apply Pricing"/>
+                    <StackPanel Margin="24,0,0,0" Spacing="6" IsEnabled="{Binding ApplyPricing}">
+                        <StackPanel Orientation="Horizontal" Spacing="16">
+                            <CheckBox Content="Run an auction" IsChecked="{Binding Template.IsAuction}"/>
+                            <CheckBox Content="Set a Buy Now price" IsChecked="{Binding Template.HasBuyNow}"/>
+                        </StackPanel>
+                        <Grid ColumnDefinitions="*,*,*" >
+                            <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                <TextBlock Text="Start price" FontSize="11" Opacity="0.7"/>
+                                <NumericUpDown Value="{Binding Template.StartPrice}" Minimum="0"
+                                               Increment="1" FormatString="C2"
+                                               IsEnabled="{Binding Template.IsAuction}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Margin="0,0,8,0">
+                                <TextBlock Text="Reserve (optional)" FontSize="11" Opacity="0.7"/>
+                                <NumericUpDown Value="{Binding Template.ReservePrice}" Minimum="0"
+                                               Increment="1" FormatString="C2"
+                                               IsEnabled="{Binding Template.IsAuction}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Buy Now price" FontSize="11" Opacity="0.7"/>
+                                <NumericUpDown Value="{Binding Template.BuyNowPrice}" Minimum="0"
+                                               Increment="1" FormatString="C2"
+                                               IsEnabled="{Binding Template.HasBuyNow}"/>
+                            </StackPanel>
+                        </Grid>
+                        <CheckBox Content="Allow buyers to make an offer" IsChecked="{Binding Template.AllowOffers}"/>
+                        <StackPanel>
+                            <TextBlock Text="Duration (days)" FontSize="11" Opacity="0.7"/>
+                            <ComboBox ItemsSource="{Binding DurationOptions}"
+                                      SelectedItem="{Binding Template.DurationDays}"
+                                      MinWidth="120" HorizontalAlignment="Left"/>
+                        </StackPanel>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Shipping & Pickup -->
+                <StackPanel Spacing="6">
+                    <CheckBox IsChecked="{Binding ApplyShipping}" FontWeight="SemiBold"
+                              Content="Apply Shipping &amp; Pickup"/>
+                    <StackPanel Margin="24,0,0,0" Spacing="6" IsEnabled="{Binding ApplyShipping}">
+                        <TextBlock Text="Shipping method" FontSize="11" Opacity="0.7"/>
+                        <ComboBox ItemsSource="{Binding ShippingMethodOptions}"
+                                  SelectedItem="{Binding Template.Shipping}"
+                                  HorizontalAlignment="Left" MinWidth="200"/>
+
+                        <StackPanel IsVisible="{Binding IsSpecifyShipping}" Spacing="6">
+                            <Grid ColumnDefinitions="170,*,130,Auto,Auto"
+                                  IsVisible="{Binding !!Template.ShippingOptions.Count}">
+                                <TextBlock Grid.Column="0" Text="Cost" FontSize="11" Opacity="0.6" Margin="0,0,8,0"/>
+                                <TextBlock Grid.Column="1" Text="Region" FontSize="11" Opacity="0.6" Margin="0,0,8,0"/>
+                                <TextBlock Grid.Column="2" Text="Rural" FontSize="11" Opacity="0.6" Margin="0,0,8,0"/>
+                            </Grid>
+                            <ItemsControl ItemsSource="{Binding Template.ShippingOptions}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="models:ShippingOption">
+                                        <Grid ColumnDefinitions="170,*,130,Auto,Auto" Margin="0,0,0,6">
+                                            <NumericUpDown Grid.Column="0" Value="{Binding Price}"
+                                                           Minimum="0" Increment="0.5" FormatString="C2"
+                                                           Margin="0,0,8,0"/>
+                                            <ComboBox Grid.Column="1" Margin="0,0,8,0" HorizontalAlignment="Stretch"
+                                                      ItemsSource="{Binding $parent[ItemsControl].((vm:BulkEditViewModel)DataContext).RegionOptions}"
+                                                      SelectedValueBinding="{Binding Value}"
+                                                      SelectedValue="{Binding Region}">
+                                                <ComboBox.ItemTemplate>
+                                                    <DataTemplate x:DataType="models:ShippingRegion">
+                                                        <TextBlock Text="{Binding Display}"/>
+                                                    </DataTemplate>
+                                                </ComboBox.ItemTemplate>
+                                            </ComboBox>
+                                            <ComboBox Grid.Column="2" Margin="0,0,8,0" MinWidth="100"
+                                                      ItemsSource="{Binding $parent[ItemsControl].((vm:BulkEditViewModel)DataContext).RuralOptions}"
+                                                      SelectedItem="{Binding Rural}"/>
+                                            <CheckBox Grid.Column="3" Content="Signed" VerticalAlignment="Center"
+                                                      IsChecked="{Binding Signed}"/>
+                                            <Button Grid.Column="4" Margin="8,0,0,0" Background="Transparent"
+                                                    Command="{Binding $parent[ItemsControl].((vm:BulkEditViewModel)DataContext).RemoveShippingOptionCommand}"
+                                                    CommandParameter="{Binding}">
+                                                <mi:MaterialIcon Kind="Delete" Width="18" Height="18"/>
+                                            </Button>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <Button Command="{Binding AddShippingOptionCommand}" HorizontalAlignment="Left">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <mi:MaterialIcon Kind="Plus" Width="16" Height="16"/>
+                                    <TextBlock Text="Add shipping option"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+
+                        <TextBlock Text="Pickup" FontSize="11" Opacity="0.7"/>
+                        <ComboBox ItemsSource="{Binding PickupOptions}"
+                                  SelectedItem="{Binding Template.PickupOption}"
+                                  HorizontalAlignment="Left" MinWidth="160"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Category -->
+                <StackPanel Spacing="6">
+                    <CheckBox IsChecked="{Binding ApplyCategory}" FontWeight="SemiBold"
+                              Content="Apply Category"/>
+                    <StackPanel Margin="24,0,0,0" Spacing="4" IsEnabled="{Binding ApplyCategory}">
+                        <TextBox Text="{Binding Template.CategoryId}"
+                                 Watermark="Category number e.g. 0153-0439-3001-"/>
+                        <TextBlock Text="{Binding CategoryPathDisplay}" FontSize="11" Opacity="0.7"
+                                   TextWrapping="Wrap"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Condition -->
+                <StackPanel Spacing="6">
+                    <CheckBox IsChecked="{Binding ApplyCondition}" FontWeight="SemiBold"
+                              Content="Apply Condition"/>
+                    <StackPanel Margin="24,0,0,0" IsEnabled="{Binding ApplyCondition}">
+                        <ComboBox ItemsSource="{Binding ConditionOptions}"
+                                  SelectedItem="{Binding Template.Condition}"
+                                  HorizontalAlignment="Left" MinWidth="160"/>
+                    </StackPanel>
+                </StackPanel>
+
+            </StackPanel>
+        </ScrollViewer>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right"
+                    Spacing="8" Margin="0,12,0,0">
+            <Button Content="Cancel" Command="{Binding CancelCommand}"/>
+            <Button Content="Apply to selected" Command="{Binding ApplyCommand}" Classes="accent"/>
+        </StackPanel>
+    </Grid>
+</UserControl>

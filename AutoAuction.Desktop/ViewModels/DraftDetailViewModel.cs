@@ -34,6 +34,10 @@ public class DraftDetailViewModel : ViewModelBase
     private const int SaveDebounceMs = 500;
     private bool _closed;
 
+    // True while AI is writing fields, so the change-tracking doesn't treat those writes as
+    // "user edits" and lock the groups it just filled.
+    private bool _applyingAi;
+
     public ListingModel Listing { get; }
 
     public ObservableCollection<DraftImageViewModel> Images { get; } = new();
@@ -62,6 +66,13 @@ public class DraftDetailViewModel : ViewModelBase
     public ReactiveCommand<Unit, Unit> GenerateWithAiCommand { get; }
     public ReactiveCommand<Unit, Unit> ApplyAiCommand { get; }
     public ReactiveCommand<Unit, Unit> DiscardAiCommand { get; }
+    public ReactiveCommand<Unit, Unit> ClearLocksCommand { get; }
+
+    /// <summary>Groups the user has set that AI won't overwrite, e.g. "Pricing, Shipping". Empty if none.</summary>
+    public string LockSummary => ListingFieldApplier.DescribeLocks(Listing.LockedGroups);
+
+    /// <summary>True when at least one field group is locked against AI.</summary>
+    public bool HasLocks => Listing.LockedGroups != ListingFieldGroup.None;
 
     private bool _isGenerating;
     public bool IsGenerating
@@ -154,6 +165,7 @@ public class DraftDetailViewModel : ViewModelBase
         GenerateWithAiCommand = ReactiveCommand.CreateFromTask(GenerateWithAiAsync, canGenerate);
         ApplyAiCommand = ReactiveCommand.Create(ApplyAi);
         DiscardAiCommand = ReactiveCommand.Create(() => { AiPreview = null; AiError = string.Empty; });
+        ClearLocksCommand = ReactiveCommand.Create(ClearLocks);
 
         // This draft is now the one the Chrome extension bridge should serve.
         _activeListing.ActiveFolderPath = _folderPath;
@@ -192,10 +204,21 @@ public class DraftDetailViewModel : ViewModelBase
             this.RaisePropertyChanged(nameof(CategoryPathDisplay));
         if (e.PropertyName == nameof(ListingModel.Shipping))
             this.RaisePropertyChanged(nameof(IsSpecifyShipping));
+        if (e.PropertyName == nameof(ListingModel.LockedGroups))
+        {
+            this.RaisePropertyChanged(nameof(LockSummary));
+            this.RaisePropertyChanged(nameof(HasLocks));
+        }
+
+        LockFromUser(ListingFieldApplier.GroupFor(e.PropertyName));
         ScheduleSave();
     }
 
-    private void OnShippingOptionChanged(object? sender, PropertyChangedEventArgs e) => ScheduleSave();
+    private void OnShippingOptionChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        LockFromUser(ListingFieldGroup.Shipping);
+        ScheduleSave();
+    }
 
     private void OnShippingOptionsChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
@@ -207,7 +230,23 @@ public class DraftDetailViewModel : ViewModelBase
             foreach (ShippingOption option in e.NewItems)
                 option.PropertyChanged += OnShippingOptionChanged;
 
+        LockFromUser(ListingFieldGroup.Shipping);
         ScheduleSave();
+    }
+
+    /// <summary>Locks a group when the user (not AI) changes one of its fields.</summary>
+    private void LockFromUser(ListingFieldGroup group)
+    {
+        if (_applyingAi || group == ListingFieldGroup.None)
+            return;
+        if (!Listing.LockedGroups.HasFlag(group))
+            Listing.LockedGroups |= group; // raises LockedGroups change → refreshes LockSummary
+    }
+
+    private void ClearLocks()
+    {
+        Listing.LockedGroups = ListingFieldGroup.None;
+        _shell.StatusMessage = "Locks cleared — AI may fill every field";
     }
 
     /// <summary>Returns to Home, leaving the draft saved in place.</summary>
@@ -269,55 +308,31 @@ public class DraftDetailViewModel : ViewModelBase
         }
     }
 
-    /// <summary>Writes the previewed AI fields into the listing (auto-save then persists them).</summary>
+    /// <summary>
+    /// Writes the previewed AI fields into the listing (auto-save then persists them). Locked groups
+    /// are preserved — the applier skips them. The <see cref="_applyingAi"/> guard stops the
+    /// change-tracking from re-locking the groups AI just filled.
+    /// </summary>
     private void ApplyAi()
     {
         if (AiPreview is null)
             return;
 
-        var f = AiPreview.Fields;
-        Listing.Title = Truncate(f.Title, 50);
-        Listing.Subtitle = Truncate(f.Subtitle, 50);
-        Listing.CategoryId = f.CategoryNumber;
-        Listing.Condition = string.Equals(f.Condition, "New", StringComparison.OrdinalIgnoreCase)
-            ? ConditionType.New
-            : ConditionType.Used;
-        Listing.Description = f.Description;
-        Listing.AiImageDescription = f.ImageDescription;
-        Listing.IsAuction = f.IsAuction;
-        Listing.HasBuyNow = f.HasBuyNow;
-        Listing.AllowOffers = f.AllowOffers;
-        Listing.StartPrice = f.StartPrice;
-        Listing.ReservePrice = f.ReservePrice;
-        Listing.BuyNowPrice = f.BuyNowPrice;
-        Listing.DurationDays = DurationOptions.Contains(f.DurationDays) ? f.DurationDays : 7;
-        Listing.PickupOption = Enum.TryParse<PickupOption>(f.PickupOption, ignoreCase: true, out var pickup)
-            ? pickup
-            : PickupOption.Allow;
-        Listing.Shipping = f.Shipping switch
+        _applyingAi = true;
+        try
         {
-            "courier" => ShippingMethod.Courier,
-            "specify" => ShippingMethod.Specify,
-            "unknown" => ShippingMethod.Unknown,
-            _ => ShippingMethod.Free
-        };
+            ListingFieldApplier.Apply(Listing, AiPreview.Fields, respectLocks: true);
+        }
+        finally
+        {
+            _applyingAi = false;
+        }
 
-        Listing.ShippingOptions.Clear();
-        foreach (var s in f.ShippingOptions)
-            Listing.ShippingOptions.Add(new ShippingOption
-            {
-                Price = s.Price,
-                Region = string.IsNullOrWhiteSpace(s.Region) ? ShippingRegions.DefaultRegion : s.Region,
-                Rural = string.IsNullOrWhiteSpace(s.Rural) ? ShippingRegions.DefaultRural : s.Rural,
-                Signed = s.Signed
-            });
-
-        _shell.StatusMessage = "Applied AI draft";
+        _shell.StatusMessage = LockSummary.Length > 0
+            ? $"Applied AI draft (kept: {LockSummary})"
+            : "Applied AI draft";
         AiPreview = null;
     }
-
-    private static string Truncate(string value, int max) =>
-        string.IsNullOrEmpty(value) || value.Length <= max ? value : value[..max];
 
     private void AddShippingOption()
     {

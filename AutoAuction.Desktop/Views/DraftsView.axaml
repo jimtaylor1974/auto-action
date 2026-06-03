@@ -1,0 +1,143 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:AutoAuction.Desktop.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:mi="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+             mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="700"
+             x:Class="AutoAuction.Desktop.Views.DraftsView"
+             x:DataType="vm:DraftsViewModel">
+
+    <Grid>
+        <!-- ===== Main content ===== -->
+        <Grid RowDefinitions="Auto,*,Auto" Margin="16,12">
+
+            <!-- Header + toolbar -->
+            <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,8">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                    <mi:MaterialIcon Kind="FileDocumentMultiple" Width="20" Height="20"
+                                     VerticalAlignment="Center"/>
+                    <TextBlock Text="Drafts" FontSize="16" FontWeight="SemiBold"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                    <Button Command="{Binding SelectAllCommand}" ToolTip.Tip="Select all drafts">
+                        <TextBlock Text="Select all"/>
+                    </Button>
+                    <Button Command="{Binding ClearSelectionCommand}" ToolTip.Tip="Clear selection">
+                        <TextBlock Text="Clear"/>
+                    </Button>
+                    <Button Command="{Binding OpenBulkEditCommand}"
+                            ToolTip.Tip="Apply shared price/shipping/category/condition to the selected drafts">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <mi:MaterialIcon Kind="Tune" Width="16" Height="16"/>
+                            <TextBlock Text="{Binding BulkButtonText}"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{Binding DiscardSelectedCommand}"
+                            ToolTip.Tip="Discard selected drafts (photos return to inbox)">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <mi:MaterialIcon Kind="DeleteOutline" Width="16" Height="16"/>
+                            <TextBlock Text="{Binding DiscardButtonText}"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{Binding BatchDraftWithAiCommand}" Classes="accent"
+                            ToolTip.Tip="Run Draft with AI across the selected drafts">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <mi:MaterialIcon Kind="AutoFix" Width="16" Height="16"/>
+                            <TextBlock Text="{Binding BatchButtonText}"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{Binding CancelBatchCommand}" IsVisible="{Binding IsBatchRunning}"
+                            ToolTip.Tip="Cancel the running batch">
+                        <TextBlock Text="Cancel"/>
+                    </Button>
+                    <Button Command="{Binding RefreshCommand}" Padding="6" Background="Transparent"
+                            ToolTip.Tip="Reload drafts">
+                        <mi:MaterialIcon Kind="Refresh" Width="16" Height="16"/>
+                    </Button>
+                </StackPanel>
+            </Grid>
+
+            <!-- Drafts grid -->
+            <DataGrid Grid.Row="1" Name="DraftsGrid"
+                      ItemsSource="{Binding Drafts}"
+                      AutoGenerateColumns="False"
+                      IsReadOnly="True"
+                      CanUserResizeColumns="True"
+                      GridLinesVisibility="Horizontal"
+                      BorderThickness="1"
+                      BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                      DoubleTapped="OnDraftDoubleTapped">
+                <DataGrid.Columns>
+                    <DataGridTemplateColumn Header="" Width="44">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate x:DataType="vm:DraftRowViewModel">
+                                <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="" Width="56">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate x:DataType="vm:DraftRowViewModel">
+                                <Border Width="40" Height="40" CornerRadius="3" Margin="6,4"
+                                        ClipToBounds="True" Background="#22000000">
+                                    <Image Source="{Binding CoverThumbnail}" Stretch="UniformToFill"/>
+                                </Border>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="Title" Binding="{Binding DisplayTitle}" Width="*"/>
+                    <DataGridTextColumn Header="Photos" Binding="{Binding PhotoCount}" Width="70"/>
+                    <DataGridTemplateColumn Header="AI" Width="50">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate x:DataType="vm:DraftRowViewModel">
+                                <TextBlock Text="{Binding AiBadge}" FontSize="14"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           ToolTip.Tip="AI-drafted"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="Locked (kept from AI)" Binding="{Binding LockSummary}" Width="160"/>
+                    <DataGridTextColumn Header="State" Binding="{Binding StateText}" Width="150"/>
+                    <DataGridTextColumn Header="Created" Binding="{Binding CreatedDisplay}" Width="140"/>
+                    <DataGridTextColumn Header="Status" Binding="{Binding StatusDisplay}" Width="80"/>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <TextBlock Grid.Row="1" Text="No drafts yet. Add photos in Home, then create drafts."
+                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                       Opacity="0.5" FontSize="12"
+                       IsVisible="{Binding !Drafts.Count}"/>
+
+            <!-- Batch activity log -->
+            <Border Grid.Row="2" Margin="0,8,0,0" Padding="8" CornerRadius="4"
+                    MaxHeight="140"
+                    Background="{DynamicResource SystemControlBackgroundAltMediumHighBrush}"
+                    IsVisible="{Binding ShowBatchLog}">
+                <ScrollViewer>
+                    <ItemsControl ItemsSource="{Binding BatchLog}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" FontFamily="Consolas,monospace" FontSize="11"/>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+
+        <!-- ===== Bulk-edit overlay ===== -->
+        <Border IsVisible="{Binding ShowBulkEdit}" Background="#99000000">
+            <Border MaxWidth="640" MaxHeight="640" Margin="24"
+                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                    CornerRadius="6" BorderThickness="1"
+                    Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
+                    BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}">
+                <ContentControl Content="{Binding BulkEdit}"/>
+            </Border>
+        </Border>
+    </Grid>
+</UserControl>

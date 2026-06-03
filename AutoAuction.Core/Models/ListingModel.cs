@@ -41,6 +41,25 @@ public class ListingModel : ReactiveObject
     /// <summary>Full TradeMe listing URL, captured by the extension after publishing. Null until listed.</summary>
     public string? TradeMeListingUrl { get; set; }
 
+    private ListingFieldGroup _lockedGroups = ListingFieldGroup.None;
+    /// <summary>
+    /// Field groups the user has set (manually or via bulk-apply) and that AI must not overwrite.
+    /// Set automatically when the user edits a field; cleared per-group to hand it back to AI.
+    /// </summary>
+    public ListingFieldGroup LockedGroups
+    {
+        get => _lockedGroups;
+        set => this.RaiseAndSetIfChanged(ref _lockedGroups, value);
+    }
+
+    private DateTime? _aiDraftedUtc;
+    /// <summary>When AI last applied generated fields to this draft. Null if never AI-drafted.</summary>
+    public DateTime? AiDraftedUtc
+    {
+        get => _aiDraftedUtc;
+        set => this.RaiseAndSetIfChanged(ref _aiDraftedUtc, value);
+    }
+
     // ----- 1. Core Details -----
 
     private string _title = string.Empty;

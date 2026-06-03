@@ -131,6 +131,23 @@
                 <!-- Save status -->
                 <TextBlock Text="{Binding SaveStatus}" FontSize="11" Opacity="0.6" Margin="0,8,0,0"/>
 
+                <!-- Lock banner: groups the user has set that AI won't overwrite -->
+                <Border IsVisible="{Binding HasLocks}" Margin="0,8,0,0" Padding="10,6"
+                        CornerRadius="6" Background="#2630B0F0">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                        <mi:MaterialIcon Grid.Column="0" Kind="LockOutline" Width="16" Height="16"
+                                         VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="1" VerticalAlignment="Center" Margin="8,0"
+                                   TextWrapping="Wrap" FontSize="12"
+                                   Text="{Binding LockSummary, StringFormat='Kept from AI (you set these): {0}'}"/>
+                        <Button Grid.Column="2" Command="{Binding ClearLocksCommand}"
+                                Padding="6,2" Background="Transparent"
+                                ToolTip.Tip="Let AI fill these fields next time">
+                            <TextBlock Text="Let AI fill" FontSize="11"/>
+                        </Button>
+                    </Grid>
+                </Border>
+
                 <!-- AI error -->
                 <TextBlock Text="{Binding AiError}" Foreground="#D13438" FontSize="12"
                            TextWrapping="Wrap" Margin="0,8,0,0"

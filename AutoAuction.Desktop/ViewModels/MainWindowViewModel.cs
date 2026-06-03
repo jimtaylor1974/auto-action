@@ -10,6 +10,7 @@ namespace AutoAuction.Desktop.ViewModels;
 public enum AppPage
 {
     Home,
+    Drafts,
     DraftDetail,
     Listed,
     Settings
@@ -55,6 +56,7 @@ public class MainWindowViewModel : ViewModelBase
         _generator = generator;
 
         NavigateToHomeCommand = ReactiveCommand.Create(NavigateToHome);
+        NavigateToDraftsCommand = ReactiveCommand.Create(NavigateToDrafts);
         NavigateToListedCommand = ReactiveCommand.Create(NavigateToListed);
         NavigateToSettingsCommand = ReactiveCommand.Create(NavigateToSettings);
         RecheckPreflightCommand = ReactiveCommand.CreateFromTask(RunPreflightAsync);
@@ -93,6 +95,7 @@ public class MainWindowViewModel : ViewModelBase
     }
 
     public ReactiveCommand<Unit, Unit> NavigateToHomeCommand { get; }
+    public ReactiveCommand<Unit, Unit> NavigateToDraftsCommand { get; }
     public ReactiveCommand<Unit, Unit> NavigateToListedCommand { get; }
     public ReactiveCommand<Unit, Unit> NavigateToSettingsCommand { get; }
     public ReactiveCommand<Unit, Unit> RecheckPreflightCommand { get; }
@@ -117,6 +120,7 @@ public class MainWindowViewModel : ViewModelBase
 
     // Selection state for the navigation rail highlight.
     public bool IsHomeSelected => _currentPageEnum == AppPage.Home;
+    public bool IsDraftsSelected => _currentPageEnum == AppPage.Drafts;
     public bool IsListedSelected => _currentPageEnum == AppPage.Listed;
     public bool IsSettingsSelected => _currentPageEnum == AppPage.Settings;
 
@@ -153,6 +157,7 @@ public class MainWindowViewModel : ViewModelBase
     {
         _currentPageEnum = page;
         this.RaisePropertyChanged(nameof(IsHomeSelected));
+        this.RaisePropertyChanged(nameof(IsDraftsSelected));
         this.RaisePropertyChanged(nameof(IsListedSelected));
         this.RaisePropertyChanged(nameof(IsSettingsSelected));
     }
@@ -176,6 +181,14 @@ public class MainWindowViewModel : ViewModelBase
         SetPage(AppPage.DraftDetail);
         CurrentPage = new DraftDetailViewModel(this, _draftService, _activeListing, _generator, _categoryService, draft);
         StatusMessage = "Editing draft";
+    }
+
+    public void NavigateToDrafts()
+    {
+        _activeListing.ActiveFolderPath = null;
+        SetPage(AppPage.Drafts);
+        CurrentPage = new DraftsViewModel(this, _draftService, _generator, _categoryService);
+        StatusMessage = "Drafts";
     }
 
     public void NavigateToListed()

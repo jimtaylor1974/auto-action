@@ -9,13 +9,10 @@
              x:DataType="vm:HomeViewModel"
              DragDrop.AllowDrop="True">
 
-    <Grid ColumnDefinitions="320,Auto,*">
+    <Grid>
 
         <!-- ===== Inbox gallery ===== -->
-        <Border Grid.Column="0"
-                Background="{DynamicResource SystemControlBackgroundAltMediumHighBrush}"
-                BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
-                BorderThickness="0,0,1,0">
+        <Border Grid.Column="0">
             <Grid RowDefinitions="Auto,*,Auto">
 
                 <!-- Inbox header -->
@@ -85,63 +82,25 @@
                            Opacity="0.5" FontSize="12"
                            IsVisible="{Binding !InboxImages.Count}"/>
 
-                <!-- Create Draft button -->
-                <Button Grid.Row="2" Margin="12,4,12,12"
-                        HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Center"
-                        Command="{Binding CreateDraftCommand}"
-                        Classes="accent">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <mi:MaterialIcon Kind="PlusBox" Width="18" Height="18"/>
-                        <TextBlock Text="Create Draft from selected"/>
-                    </StackPanel>
-                </Button>
+                <!-- Create buttons: choose one multi-photo listing, or one listing per photo -->
+                <StackPanel Grid.Row="2" Margin="12,4,12,12" Spacing="6">
+                    <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                            Command="{Binding CreateOneListingCommand}" Classes="accent">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <mi:MaterialIcon Kind="PlusBox" Width="18" Height="18"/>
+                            <TextBlock Text="{Binding CreateOneListingText}"/>
+                        </StackPanel>
+                    </Button>
+                    <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                            Command="{Binding CreatePerPhotoCommand}"
+                            IsVisible="{Binding ShowPerPhoto}">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <mi:MaterialIcon Kind="ImageMultiple" Width="18" Height="18"/>
+                            <TextBlock Text="{Binding CreatePerPhotoText}"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
             </Grid>
         </Border>
-
-        <GridSplitter Grid.Column="1" Width="4" ResizeDirection="Columns"
-                      Background="Transparent" HorizontalAlignment="Stretch"/>
-
-        <!-- ===== Drafts table ===== -->
-        <Grid Grid.Column="2" RowDefinitions="Auto,*" Margin="16,12">
-            <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
-                <mi:MaterialIcon Kind="FileDocumentEdit" Width="20" Height="20"/>
-                <TextBlock Text="Drafts" FontSize="16" FontWeight="SemiBold"
-                           VerticalAlignment="Center"/>
-            </StackPanel>
-
-            <DataGrid Grid.Row="1"
-                      ItemsSource="{Binding Drafts}"
-                      SelectedItem="{Binding SelectedDraft}"
-                      AutoGenerateColumns="False"
-                      IsReadOnly="True"
-                      CanUserResizeColumns="True"
-                      GridLinesVisibility="Horizontal"
-                      BorderThickness="1"
-                      BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
-                      DoubleTapped="OnDraftDoubleTapped">
-                <DataGrid.Columns>
-                    <DataGridTemplateColumn Header="" Width="56">
-                        <DataGridTemplateColumn.CellTemplate>
-                            <DataTemplate x:DataType="vm:DraftListItemViewModel">
-                                <Border Width="40" Height="40" CornerRadius="3" Margin="6,4"
-                                        ClipToBounds="True" Background="#22000000">
-                                    <Image Source="{Binding CoverThumbnail}" Stretch="UniformToFill"/>
-                                </Border>
-                            </DataTemplate>
-                        </DataGridTemplateColumn.CellTemplate>
-                    </DataGridTemplateColumn>
-                    <DataGridTextColumn Header="Title" Binding="{Binding DisplayTitle}" Width="*"/>
-                    <DataGridTextColumn Header="Photos" Binding="{Binding PhotoCount}" Width="80"/>
-                    <DataGridTextColumn Header="Created" Binding="{Binding CreatedDisplay}" Width="150"/>
-                    <DataGridTextColumn Header="Status" Binding="{Binding StatusDisplay}" Width="90"/>
-                </DataGrid.Columns>
-            </DataGrid>
-
-            <TextBlock Grid.Row="1" Text="No drafts yet. Select inbox photos and click Create Draft."
-                       HorizontalAlignment="Center" VerticalAlignment="Center"
-                       Opacity="0.5" FontSize="12"
-                       IsVisible="{Binding !Drafts.Count}"/>
-        </Grid>
     </Grid>
 </UserControl>

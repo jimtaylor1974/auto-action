@@ -12,8 +12,8 @@ using ReactiveUI;
 namespace AutoAuction.Desktop.ViewModels;
 
 /// <summary>
-/// Home page: the Inbox gallery on the left and the Drafts table on the right.
-/// Creating or opening a draft navigates (via the shell) to the Draft Detail page.
+/// Home page: the Inbox gallery. The user ticks photos then chooses to turn them into either
+/// one multi-photo listing or one listing per photo. Drafts themselves live on the Drafts page.
 /// </summary>
 public class HomeViewModel : ViewModelBase
 {
@@ -24,21 +24,11 @@ public class HomeViewModel : ViewModelBase
     private readonly BehaviorSubject<bool> _hasSelectionSubject = new(false);
 
     public ObservableCollection<InboxImageViewModel> InboxImages { get; } = new();
-    public ObservableCollection<DraftListItemViewModel> Drafts { get; } = new();
-
-    private DraftListItemViewModel? _selectedDraft;
-    /// <summary>Selected row in the Drafts table (opened via double-tap / Open command).</summary>
-    public DraftListItemViewModel? SelectedDraft
-    {
-        get => _selectedDraft;
-        set => this.RaiseAndSetIfChanged(ref _selectedDraft, value);
-    }
 
     public ReactiveCommand<Unit, Unit> RefreshInboxCommand { get; }
-    public ReactiveCommand<Unit, Unit> RefreshDraftsCommand { get; }
     public ReactiveCommand<Unit, Unit> OpenInboxFolderCommand { get; }
-    public ReactiveCommand<Unit, Unit> CreateDraftCommand { get; }
-    public ReactiveCommand<Unit, Unit> OpenSelectedDraftCommand { get; }
+    public ReactiveCommand<Unit, Unit> CreateOneListingCommand { get; }
+    public ReactiveCommand<Unit, Unit> CreatePerPhotoCommand { get; }
 
     public HomeViewModel(MainWindowViewModel shell, IDraftService draftService, IAppConfig config)
     {
@@ -47,28 +37,28 @@ public class HomeViewModel : ViewModelBase
         _config = config;
 
         RefreshInboxCommand = ReactiveCommand.Create(RefreshInbox);
-        RefreshDraftsCommand = ReactiveCommand.Create(RefreshDrafts);
         OpenInboxFolderCommand = ReactiveCommand.Create(OpenInboxFolder);
-        CreateDraftCommand = ReactiveCommand.Create(CreateDraft, _hasSelectionSubject);
-        OpenSelectedDraftCommand = ReactiveCommand.Create(OpenSelectedDraft);
+        CreateOneListingCommand = ReactiveCommand.Create(CreateOneListing, _hasSelectionSubject);
+        CreatePerPhotoCommand = ReactiveCommand.Create(CreatePerPhoto, _hasSelectionSubject);
 
         RefreshInbox();
-        RefreshDrafts();
     }
 
     /// <summary>True when at least one inbox image is ticked.</summary>
     public bool HasSelection => InboxImages.Any(i => i.IsSelected);
 
+    private int SelectedCount => InboxImages.Count(i => i.IsSelected);
+
+    /// <summary>Label for the "make one listing from all selected photos" button.</summary>
+    public string CreateOneListingText => $"Create 1 listing ({SelectedCount} photos)";
+
+    /// <summary>Label for the "one listing per selected photo" button.</summary>
+    public string CreatePerPhotoText => $"Create {SelectedCount} listings (1 photo each)";
+
+    /// <summary>The per-photo option only makes sense for 2+ photos.</summary>
+    public bool ShowPerPhoto => SelectedCount > 1;
+
     public string InboxPath => _config.InboxPath;
-
-    /// <summary>Opens the given draft in the Draft Detail page.</summary>
-    public void OpenDraft(DraftListItemViewModel? item)
-    {
-        if (item is not null)
-            _shell.NavigateToDraft(item.Draft);
-    }
-
-    private void OpenSelectedDraft() => OpenDraft(SelectedDraft);
 
     /// <summary>Imports external image files (drag-drop or file picker) into the inbox.</summary>
     public void ImportPhotos(IEnumerable<string> paths)
@@ -99,52 +89,62 @@ public class HomeViewModel : ViewModelBase
             InboxImages.Add(vm);
         }
 
-        this.RaisePropertyChanged(nameof(HasSelection));
-        _hasSelectionSubject.OnNext(HasSelection);
+        RaiseSelectionState();
         UpdateInboxStatus();
     }
 
-    public void RefreshDrafts()
-    {
-        Drafts.Clear();
-        foreach (var draft in _draftService.GetDrafts())
-            Drafts.Add(new DraftListItemViewModel(draft));
-    }
+    private List<string> SelectedPaths() =>
+        InboxImages.Where(i => i.IsSelected).Select(i => i.FullPath).ToList();
 
-    private void CreateDraft()
+    /// <summary>Moves all selected photos into a single new draft and opens it.</summary>
+    private void CreateOneListing()
     {
-        var selectedPaths = InboxImages
-            .Where(i => i.IsSelected)
-            .Select(i => i.FullPath)
-            .ToList();
-
+        var selectedPaths = SelectedPaths();
         if (selectedPaths.Count == 0)
             return;
 
         var draft = _draftService.CreateDraft(selectedPaths);
+        RefreshInbox();
+        _shell.StatusMessage = $"Created 1 listing from {selectedPaths.Count} photo(s)";
+        _shell.NavigateToDraft(draft);
+    }
+
+    /// <summary>Creates one draft per selected photo, then lands on the Drafts page to batch them.</summary>
+    private void CreatePerPhoto()
+    {
+        var selectedPaths = SelectedPaths();
+        if (selectedPaths.Count == 0)
+            return;
+
+        foreach (var path in selectedPaths)
+            _draftService.CreateDraft(new[] { path });
 
         RefreshInbox();
-        RefreshDrafts();
-
-        _shell.StatusMessage = $"Created draft from {selectedPaths.Count} photo(s)";
-
-        // Open the freshly created draft straight away.
-        _shell.NavigateToDraft(draft);
+        _shell.StatusMessage = $"Created {selectedPaths.Count} listing(s), one per photo";
+        _shell.NavigateToDrafts();
     }
 
     private void OnInboxImageChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(InboxImageViewModel.IsSelected))
         {
-            this.RaisePropertyChanged(nameof(HasSelection));
-            _hasSelectionSubject.OnNext(HasSelection);
+            RaiseSelectionState();
             UpdateInboxStatus();
         }
     }
 
+    private void RaiseSelectionState()
+    {
+        this.RaisePropertyChanged(nameof(HasSelection));
+        this.RaisePropertyChanged(nameof(CreateOneListingText));
+        this.RaisePropertyChanged(nameof(CreatePerPhotoText));
+        this.RaisePropertyChanged(nameof(ShowPerPhoto));
+        _hasSelectionSubject.OnNext(HasSelection);
+    }
+
     private void UpdateInboxStatus()
     {
-        var selected = InboxImages.Count(i => i.IsSelected);
+        var selected = SelectedCount;
         _shell.StatusMessage = selected > 0
             ? $"{selected} of {InboxImages.Count} photo(s) selected"
             : $"{InboxImages.Count} photo(s) in inbox";

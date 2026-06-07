@@ -17,7 +17,7 @@ public partial class DraftsView : UserControl
     private void OnDraftDoubleTapped(object? sender, TappedEventArgs e)
     {
         if (DataContext is DraftsViewModel vm
-            && DraftsGrid.SelectedItem is DraftRowViewModel row)
+            && sender is DataGrid { SelectedItem: DraftRowViewModel row })
             vm.OpenCommand.Execute(row).Subscribe();
     }
 }

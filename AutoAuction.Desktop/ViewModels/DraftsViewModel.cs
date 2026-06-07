@@ -196,14 +196,19 @@ public class DraftsViewModel : ViewModelBase
 
     private async Task BatchDraftWithAiAsync()
     {
-        var targets = SelectedRows.ToList();
-        if (targets.Count == 0)
+        var selected = SelectedRows.ToList();
+        if (selected.Count == 0)
             return;
+
+        var skipped = selected.Count(r => r.IsAiDrafted);
+        var targets = selected.Where(r => !r.IsAiDrafted).ToList();
 
         _batchCts = new CancellationTokenSource();
         var ct = _batchCts.Token;
         IsBatchRunning = true;
         BatchLog.Clear();
+        if (skipped > 0)
+            Log($"Skipping {skipped} draft(s) already drafted with AI");
         foreach (var row in targets)
             row.SetState(DraftProcessingState.Queued);
 
@@ -257,9 +262,10 @@ public class DraftsViewModel : ViewModelBase
                 }
             }
 
+            var skippedSuffix = skipped > 0 ? $", {skipped} skipped (already AI)" : string.Empty;
             _shell.StatusMessage = ct.IsCancellationRequested
-                ? $"Batch cancelled — {done} done, {failed} failed"
-                : $"Batch AI complete — {done} done, {failed} failed";
+                ? $"Batch cancelled — {done} done, {failed} failed{skippedSuffix}"
+                : $"Batch AI complete — {done} done, {failed} failed{skippedSuffix}";
         }
         finally
         {

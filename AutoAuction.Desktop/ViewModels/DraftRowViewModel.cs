@@ -72,7 +72,6 @@ public sealed class DraftRowViewModel : ReactiveObject
     public bool IsProcessing => _state is DraftProcessingState.Queued or DraftProcessingState.Working;
 
     public bool IsAiDrafted => Listing.AiDraftedUtc is not null;
-    public string AiBadge => IsAiDrafted ? "✨" : string.Empty;
 
     public string LockSummary => ListingFieldApplier.DescribeLocks(Listing.LockedGroups);
 
@@ -105,7 +104,6 @@ public sealed class DraftRowViewModel : ReactiveObject
         this.RaisePropertyChanged(nameof(PhotoCount));
         this.RaisePropertyChanged(nameof(StatusDisplay));
         this.RaisePropertyChanged(nameof(IsAiDrafted));
-        this.RaisePropertyChanged(nameof(AiBadge));
         this.RaisePropertyChanged(nameof(LockSummary));
     }
 }

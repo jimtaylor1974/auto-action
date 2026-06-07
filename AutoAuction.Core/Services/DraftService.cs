@@ -61,6 +61,13 @@ public interface IDraftService
     /// <summary>Loads the listing for a specific draft folder (creating a default if missing).</summary>
     ListingModel LoadListing(string draftFolderPath);
 
+    /// <summary>
+    /// Rotates an image inside a folder by 90° (clockwise when <paramref name="clockwise"/> is
+    /// true, otherwise counter-clockwise), baking the change into the file on disk. No-op if the
+    /// file is missing or cannot be processed.
+    /// </summary>
+    void RotateImage(string folderPath, string fileName, bool clockwise);
+
     /// <summary>Serializes the listing back to <c>listing.json</c> in its draft folder.</summary>
     void SaveListing(string draftFolderPath, ListingModel listing);
 }
@@ -316,6 +323,29 @@ public sealed class DraftService : IDraftService
         var json = JsonSerializer.Serialize(listing, JsonOptions);
         File.WriteAllText(tempPath, json);
         File.Move(tempPath, jsonPath, overwrite: true);
+    }
+
+    public void RotateImage(string folderPath, string fileName, bool clockwise)
+    {
+        var path = Path.Combine(folderPath, fileName);
+        if (!File.Exists(path))
+            return;
+
+        try
+        {
+            using var image = new MagickImage(path);
+
+            // Bake any EXIF orientation into the pixels first so the rotation is applied
+            // relative to what the user actually sees, then the cleared orientation means
+            // the rewritten file displays upright everywhere.
+            image.AutoOrient();
+            image.Rotate(clockwise ? 90 : -90);
+            image.Write(path);
+        }
+        catch (MagickException)
+        {
+            // Leave the file untouched if it can't be decoded/written.
+        }
     }
 
     private static bool IsImage(string path) =>

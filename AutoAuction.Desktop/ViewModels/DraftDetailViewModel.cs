@@ -67,6 +67,8 @@ public class DraftDetailViewModel : ViewModelBase
     public ReactiveCommand<Unit, Unit> ApplyAiCommand { get; }
     public ReactiveCommand<Unit, Unit> DiscardAiCommand { get; }
     public ReactiveCommand<Unit, Unit> ClearLocksCommand { get; }
+    public ReactiveCommand<DraftImageViewModel, Unit> RotateLeftCommand { get; }
+    public ReactiveCommand<DraftImageViewModel, Unit> RotateRightCommand { get; }
 
     /// <summary>Groups the user has set that AI won't overwrite, e.g. "Pricing, Shipping". Empty if none.</summary>
     public string LockSummary => ListingFieldApplier.DescribeLocks(Listing.LockedGroups);
@@ -166,6 +168,8 @@ public class DraftDetailViewModel : ViewModelBase
         ApplyAiCommand = ReactiveCommand.Create(ApplyAi);
         DiscardAiCommand = ReactiveCommand.Create(() => { AiPreview = null; AiError = string.Empty; });
         ClearLocksCommand = ReactiveCommand.Create(ClearLocks);
+        RotateLeftCommand = ReactiveCommand.Create<DraftImageViewModel>(img => RotateImage(img, clockwise: false));
+        RotateRightCommand = ReactiveCommand.Create<DraftImageViewModel>(img => RotateImage(img, clockwise: true));
 
         // This draft is now the one the Chrome extension bridge should serve.
         _activeListing.ActiveFolderPath = _folderPath;
@@ -178,6 +182,16 @@ public class DraftDetailViewModel : ViewModelBase
         Images.Clear();
         foreach (var fileName in Listing.LocalImagePaths)
             Images.Add(new DraftImageViewModel(Path.Combine(_folderPath, fileName)));
+    }
+
+    private void RotateImage(DraftImageViewModel? image, bool clockwise)
+    {
+        if (image is null)
+            return;
+
+        _draftService.RotateImage(_folderPath, image.FileName, clockwise);
+        image.ReloadThumbnail();
+        SaveStatus = "Image rotated";
     }
 
     private void AttachChangeTracking()
@@ -253,7 +267,7 @@ public class DraftDetailViewModel : ViewModelBase
     private void Back()
     {
         Close();
-        _shell.NavigateToHome();
+        _shell.NavigateToDrafts();
     }
 
     private void OpenFolder() => SystemFolder.Open(_folderPath);

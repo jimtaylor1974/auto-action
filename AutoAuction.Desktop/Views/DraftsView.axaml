@@ -91,16 +91,16 @@
                     </DataGridTemplateColumn>
                     <DataGridTextColumn Header="Title" Binding="{Binding DisplayTitle}" Width="*"/>
                     <DataGridTextColumn Header="Photos" Binding="{Binding PhotoCount}" Width="70"/>
-                    <DataGridTemplateColumn Header="AI" Width="50">
+                    <DataGridTemplateColumn Header="AI" Width="60">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate x:DataType="vm:DraftRowViewModel">
-                                <TextBlock Text="{Binding AiBadge}" FontSize="14"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center"
-                                           ToolTip.Tip="AI-drafted"/>
+                                <mi:MaterialIcon Kind="Creation" Width="16" Height="16"
+                                                 IsVisible="{Binding IsAiDrafted}"
+                                                 HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                 ToolTip.Tip="Already drafted with AI"/>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
-                    <DataGridTextColumn Header="Locked (kept from AI)" Binding="{Binding LockSummary}" Width="160"/>
                     <DataGridTextColumn Header="State" Binding="{Binding StateText}" Width="150"/>
                     <DataGridTextColumn Header="Created" Binding="{Binding CreatedDisplay}" Width="140"/>
                     <DataGridTextColumn Header="Status" Binding="{Binding StatusDisplay}" Width="80"/>

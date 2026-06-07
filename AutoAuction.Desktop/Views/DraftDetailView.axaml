@@ -31,7 +31,7 @@
                 BorderThickness="0,0,0,1">
             <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto">
                 <Button Grid.Column="0" Command="{Binding BackCommand}"
-                        ToolTip.Tip="Back to Home" Padding="6,4">
+                        ToolTip.Tip="Back to Drafts" Padding="6,4">
                     <StackPanel Orientation="Horizontal" Spacing="4">
                         <mi:MaterialIcon Kind="ArrowLeft" Width="18" Height="18"/>
                         <TextBlock Text="Back" FontSize="12"/>
@@ -117,8 +117,28 @@
                             <DataTemplate x:DataType="vm:DraftImageViewModel">
                                 <Border Width="110" Height="110" CornerRadius="4"
                                         ClipToBounds="True" Background="#22000000">
-                                    <Image Source="{Binding Thumbnail}" Stretch="UniformToFill"
-                                           ToolTip.Tip="{Binding FileName}"/>
+                                    <Grid>
+                                        <Image Source="{Binding Thumbnail}" Stretch="UniformToFill"
+                                               ToolTip.Tip="{Binding FileName}"/>
+                                        <StackPanel Orientation="Horizontal" Spacing="4"
+                                                    HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                                    Margin="4">
+                                            <Button Padding="3" Background="#AA000000"
+                                                    Command="{Binding $parent[ItemsControl].((vm:DraftDetailViewModel)DataContext).RotateLeftCommand}"
+                                                    CommandParameter="{Binding}"
+                                                    ToolTip.Tip="Rotate left">
+                                                <mi:MaterialIcon Kind="RotateLeft" Width="15" Height="15"
+                                                                 Foreground="White"/>
+                                            </Button>
+                                            <Button Padding="3" Background="#AA000000"
+                                                    Command="{Binding $parent[ItemsControl].((vm:DraftDetailViewModel)DataContext).RotateRightCommand}"
+                                                    CommandParameter="{Binding}"
+                                                    ToolTip.Tip="Rotate right">
+                                                <mi:MaterialIcon Kind="RotateRight" Width="15" Height="15"
+                                                                 Foreground="White"/>
+                                            </Button>
+                                        </StackPanel>
+                                    </Grid>
                                 </Border>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>

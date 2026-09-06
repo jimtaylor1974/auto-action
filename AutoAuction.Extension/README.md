@@ -98,10 +98,57 @@ draft by `IActiveListingProvider` (set when a draft is opened in the desktop UI)
 
 ## Roadmap
 
-- **Now:** connectivity test (this version).
-- **Next:** a floating "⚡ Fill from AutoAuction" button injected onto TradeMe sell pages, mapping
-  the active draft's fields onto the form DOM (dispatching `input`/`change` events so React
-  registers them), and the `DataTransfer` trick to push the draft's photos into the upload control.
+- **Done:** TradeMe fill end to end (`src/steps.ts`, `src/trademeFill.ts`), stopping at "Start listing";
+  published id/URL capture in the service worker marks the draft Listed.
+- **Next: Facebook Marketplace as a second listing target.** Discovery is complete; see below.
+
+## Facebook Marketplace — continuation notes (parked 2026-09-06)
+
+**Where we got to.** The whole "Item for sale" flow was walked over CDP with a throwaway listing:
+every field filled, one photo uploaded, advanced to the audience (groups) step, stopped at Publish.
+The throwaway draft was then deleted. Full selectors, quirks, category/condition lists and the model
+mapping are in [`docs/facebook-marketplace-flow.md`](../docs/facebook-marketplace-flow.md).
+Nothing has been coded yet.
+
+**Plan for next session:** pick a genuine item, create it as a draft in the desktop app, then run the
+Facebook flow end to end (including Publish) and capture the resulting listing URL pattern, which is
+still unverified (assumed `/marketplace/item/{id}/`).
+
+**Restart the discovery environment:**
+
+```powershell
+& "C:\Program Files\Google\Chrome\Application\chrome.exe" `
+    --remote-debugging-port=9222 --user-data-dir="C:\Theta\chrome-debug-profile" `
+    https://www.facebook.com/marketplace/create/item
+node tools/cdp/eval.mjs --match marketplace/create --expr "return document.title"
+```
+
+The debug profile is separate from everyday Chrome. It was logged in to Facebook on 2026-09-06 but
+may need a fresh login (and a TradeMe login if that flow is exercised again). The walk-through
+snippets were ad hoc and not kept; the flow doc has enough detail to rewrite them.
+
+**Implementation checklist (extension):**
+
+1. `manifest.json`: add `https://www.facebook.com/*` to `host_permissions`.
+2. `src/facebookSteps.ts` + `src/facebookFill.ts`, mirroring the TradeMe pair. Lift `setInputValue`,
+   `byText`, `waitFor` out of `steps.ts` into a shared module. Category needs the pointer-event
+   sequence (pointerdown → click), not a bare `.click()`; listboxes close by choosing an option, not
+   Escape; expand "More details" before touching Description/attributes/meetup.
+3. Step 2 (`?step=audience`): read the group rows, send them to the side panel, which POSTs them to
+   the bridge (`POST /api/facebook/groups`); tick rows whose name matches the draft's `FacebookGroups`;
+   report unmatched names.
+4. Side panel: a second button "Fill Facebook listing" that opens/reuses a facebook.com tab and injects
+   `facebookFill.js`; arm capture for that tab.
+5. Service worker capture: treat navigation from `/marketplace/create` to `/marketplace/item/...` as
+   published; POST to a platform-aware endpoint (e.g. `/api/drafts/active/listed?platform=facebook`).
+
+**Implementation checklist (desktop / Core):**
+
+- `ListingModel`: `FacebookCategory` (leaf name), `UsedGrade` (like new / good / fair), `FacebookGroups`
+  (names), and a per-platform listing record replacing the TradeMe-only `TradeMeListingId/Url`.
+- Bridge: `POST /api/facebook/groups` cached to `facebook-groups.json`; extend CORS to facebook.com.
+- Draft editor: Facebook category picker (flat list, in the flow doc), used grade, group checkboxes,
+  and a default-groups preference.
 
 ## Caveats
 

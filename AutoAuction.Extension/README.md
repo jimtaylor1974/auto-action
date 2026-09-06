@@ -106,4 +106,4 @@ draft by `IActiveListingProvider` (set when a draft is opened in the desktop UI)
 ## Caveats
 
 - **PoC.** `host_permissions` is broad for localhost during development; tighten before any release.
-- SVG action icons may log a load warning in some Chrome builds; it's non-fatal for local dev.
+- Icons are PNG (`public/icons/auto-auction-{16,32,48,128}.png`), rasterized from `auto-auction-icon.svg`; Chrome does not render SVG manifest icons.

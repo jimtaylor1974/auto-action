@@ -8,6 +8,7 @@
         x:Class="AutoAuction.Desktop.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Title="AutoAuction"
+        Icon="/Assets/auto-auction.ico"
         Width="1200" Height="800"
         MinWidth="950" MinHeight="600">
 
